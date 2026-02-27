@@ -1,0 +1,14 @@
+{
+  "name": "ios-helloworld",
+  "version": "1.0.0",
+  "description": "HelloWorld for iOS IPA build",
+  "scripts": {
+    "cap": "npx cap"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.2",
+    "@capacitor/ios": "^6.1.2"
+  },
+  "author": "",
+  "license": "MIT"
+}
