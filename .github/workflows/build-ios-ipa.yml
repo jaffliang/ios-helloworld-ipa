@@ -32,6 +32,21 @@ jobs:
           npx cap add ios        # 添加 iOS 平台
           npx cap sync ios       # 同步前端资源到 iOS 项目
 
+      # 4.5 检查 iOS 项目结构
+      - name: List iOS project files
+        run: |
+          echo "iOS 目录结构:"
+          ls -la ios/
+          echo ""
+          echo "App 目录结构:"
+          ls -la ios/App/ || true
+          echo ""
+          echo "查找 xcworkspace 文件:"
+          find ios -name "*.xcworkspace" -type d
+          echo ""
+          echo "查找 scheme:"
+          xcodebuild -workspace ios/App/App.xcworkspace -list 2>/dev/null || echo "无法列出 schemes"
+
       # 5. 安装 CocoaPods 依赖（iOS 原生依赖）
       - name: Install CocoaPods
         run: |
@@ -41,15 +56,20 @@ jobs:
       # 6. Xcode 构建 iOS 项目（无签名，适配巨魔设备）
       - name: Build iOS app (Unsigned)
         run: |
+          # 列出可用的 schemes
+          echo "可用的 schemes:"
+          xcodebuild -workspace ios/App/App.xcworkspace -list
+
           # 关键：使用 Xcodebuild 构建无签名的 IPA
           xcodebuild \
             -workspace ios/App/App.xcworkspace \
             -scheme App \
-            -configuration Debug \ # 调试版（无签名）
+            -configuration Debug \
             -destination 'generic/platform=iOS' \
             -archivePath ./build/HelloWorld.xcarchive \
             archive \
-            CODE_SIGNING_ALLOWED=NO \ # 禁用代码签名（无需开发者账号）
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO
 
       # 7. 导出无签名的 IPA 文件
