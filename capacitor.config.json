@@ -1,9 +1,9 @@
 {
-  "appId": "com.jaffliang.helloworld", // 替换为自己的反向域名（如 com.githubxxx.helloworld）
+  "appId": "com.jaffliang.helloworld",
   "appName": "HelloWorldiOS",
-  "webDir": ".", // 指向前端资源根目录（这里是仓库根目录）
+  "webDir": "www",
   "ios": {
-    "bundleId": "com.jaffliang.helloworld", // 与 appId 一致
-    "minimumOsVersion": "14.0" // 兼容 iOS 14+
+    "bundleId": "com.jaffliang.helloworld",
+    "minimumOsVersion": "14.0"
   }
 }
