@@ -48,7 +48,43 @@ jobs:
           cp -r App.app Payload/
           zip -r HelloWorld.ipa Payload
 
-      - name: Upload IPA artifact
+      - name: Extract version info
+        id: version
+        run: |
+          # 使用 commit 的前7位作为版本号
+          VERSION=$(git rev-parse --short HEAD)
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          # 使用当前日期作为 tag 名称
+          TAG_NAME="ios-$(date +%Y%m%d-%H%M%S)"
+          echo "tag=${TAG_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Create Release and Upload IPA
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: iOS Unsigned IPA ${{ steps.version.outputs.tag }}
+          body: |
+            ## 无签名 iOS IPA (适用于巨魔设备)
+
+            ### 📱 应用信息
+            - **应用名称**: HelloWorldiOS
+            - **Bundle ID**: com.jaffliang.helloworld
+            - **版本**: ${{ steps.version.outputs.version }}
+            - **构建时间**: ${{ github.event.head_commit.timestamp }}
+
+            ### ⚠️ 注意事项
+            - 此 IPA 为**未签名版本**，需要通过巨魔商店或其他工具签名后安装
+            - 最低支持 iOS 14.0+
+
+            ### 📥 下载
+            点击下方的 `HelloWorld.ipa` 文件下载
+          files: ios/App/build/Build/Products/Release-iphoneos/HelloWorld.ipa
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload IPA artifact (backup)
         uses: actions/upload-artifact@v4
         with:
           name: ios-unsigned-ipa
