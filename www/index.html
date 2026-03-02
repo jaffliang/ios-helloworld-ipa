@@ -2,28 +2,19 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HelloWorld iOS</title>
-    <style>
-        body {
-            margin: 0;
-            padding: 0;
-            width: 100vw;
-            height: 100vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            /* 背景图样式 */
-            background: url('./background.jpg') no-repeat center center;
-            background-size: cover;
-            /* 文字样式 */
-            font-size: 48px;
-            color: white;
-            text-shadow: 2px 2px 4px #000;
-        }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>iOS 设备信息面板</title>
+
+    <!-- 卡通风格样式 -->
+    <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-    <div>Hello World 🚀</div>
+    <!-- 应用主容器 -->
+    <div id="app" class="container"></div>
+
+    <!-- 应用主逻辑 -->
+    <script type="module" src="js/app.js"></script>
 </body>
 </html>
