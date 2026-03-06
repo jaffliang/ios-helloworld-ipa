@@ -1,6 +1,5 @@
 ﻿import { $ } from './core/dom.js';
-import { readJSON, writeJSON } from './core/storage.js';
-import { getToolboxShell, TOOL_CARD_IDS, getToolCardLabel } from './ui/layout.js';
+import { getToolboxShell, APP_VIEWS } from './ui/layout.js';
 import {
     renderDevicePanel,
     renderQrPanel,
@@ -39,73 +38,19 @@ import {
     removeReminder
 } from './services/reminder-service.js';
 
-const TOOL_LAYOUT_KEY = 'jeff_toolbox_tool_layout_v1';
-
-function getDefaultLayout() {
-    return {
-        order: [...TOOL_CARD_IDS],
-        visibility: Object.fromEntries(TOOL_CARD_IDS.map(id => [id, true]))
-    };
-}
-
-function normalizeLayout(layout) {
-    const defaults = getDefaultLayout();
-    if (!layout || typeof layout !== 'object') {
-        return defaults;
-    }
-
-    const incomingOrder = Array.isArray(layout.order) ? layout.order : [];
-    const order = incomingOrder.filter(id => TOOL_CARD_IDS.includes(id));
-
-    for (const id of TOOL_CARD_IDS) {
-        if (!order.includes(id)) {
-            order.push(id);
-        }
-    }
-
-    const incomingVisibility = layout.visibility && typeof layout.visibility === 'object'
-        ? layout.visibility
-        : {};
-
-    const visibility = {};
-    for (const id of TOOL_CARD_IDS) {
-        visibility[id] = incomingVisibility[id] !== false;
-    }
-
-    return { order, visibility };
-}
-
-function moveItem(order, fromIndex, toIndex) {
-    if (
-        fromIndex < 0
-        || toIndex < 0
-        || fromIndex >= order.length
-        || toIndex >= order.length
-        || fromIndex === toIndex
-    ) {
-        return order;
-    }
-
-    const cloned = [...order];
-    const [item] = cloned.splice(fromIndex, 1);
-    cloned.splice(toIndex, 0, item);
-    return cloned;
-}
-
 export class ToolboxApp {
     constructor(rootSelector = '#app') {
         this.rootSelector = rootSelector;
         this.root = null;
 
         this.state = {
+            activeView: 'home',
             snapshot: null,
             qrResult: null,
             qrExplanation: null,
             noteDraftImage: '',
             notes: [],
-            reminders: [],
-            layout: getDefaultLayout(),
-            draggingToolId: ''
+            reminders: []
         };
 
         this.toastTimer = null;
@@ -114,11 +59,6 @@ export class ToolboxApp {
         this.handleClick = this.handleClick.bind(this);
         this.handleSubmit = this.handleSubmit.bind(this);
         this.handleChange = this.handleChange.bind(this);
-        this.handleDragStart = this.handleDragStart.bind(this);
-        this.handleDragOver = this.handleDragOver.bind(this);
-        this.handleDragLeave = this.handleDragLeave.bind(this);
-        this.handleDrop = this.handleDrop.bind(this);
-        this.handleDragEnd = this.handleDragEnd.bind(this);
     }
 
     async init() {
@@ -128,16 +68,12 @@ export class ToolboxApp {
         }
 
         this.root.innerHTML = getToolboxShell();
-        this.state.layout = normalizeLayout(readJSON(TOOL_LAYOUT_KEY, getDefaultLayout()));
         this.bindEvents();
 
         await initDeviceService();
 
         this.state.notes = getAllNotes();
         this.state.reminders = getAllReminders();
-
-        this.renderLayoutControls();
-        this.applyLayoutToDashboard();
 
         await this.refreshDeviceInfo(false);
         await addNetworkStatusListener(network => {
@@ -156,6 +92,7 @@ export class ToolboxApp {
         this.renderReminders();
         this.renderQr();
         this.renderNoteDraft();
+        this.setActiveView(this.state.activeView);
 
         this.startUptimeTicker();
     }
@@ -164,11 +101,27 @@ export class ToolboxApp {
         this.root.addEventListener('click', this.handleClick);
         this.root.addEventListener('submit', this.handleSubmit);
         this.root.addEventListener('change', this.handleChange);
-        this.root.addEventListener('dragstart', this.handleDragStart);
-        this.root.addEventListener('dragover', this.handleDragOver);
-        this.root.addEventListener('dragleave', this.handleDragLeave);
-        this.root.addEventListener('drop', this.handleDrop);
-        this.root.addEventListener('dragend', this.handleDragEnd);
+    }
+
+    setActiveView(viewId) {
+        if (!APP_VIEWS.includes(viewId)) {
+            return;
+        }
+
+        this.state.activeView = viewId;
+
+        this.root.querySelectorAll('[data-view-panel]').forEach(panel => {
+            panel.classList.toggle('active', panel.dataset.viewPanel === viewId);
+        });
+
+        this.root.querySelectorAll('[data-view-switch]').forEach(button => {
+            button.classList.toggle('active', button.dataset.viewSwitch === viewId);
+        });
+
+        const appMain = $('#appMain', this.root);
+        if (appMain) {
+            appMain.scrollTop = 0;
+        }
     }
 
     startUptimeTicker() {
@@ -184,172 +137,6 @@ export class ToolboxApp {
             this.state.snapshot = refreshUptime(this.state.snapshot);
             this.renderDevice();
         }, 1000);
-    }
-
-    saveLayout() {
-        writeJSON(TOOL_LAYOUT_KEY, this.state.layout);
-    }
-
-    renderLayoutControls() {
-        const list = $('#toolLayoutList', this.root);
-        if (!list) {
-            return;
-        }
-
-        list.innerHTML = this.state.layout.order
-            .map((toolId, index) => {
-                const checked = this.state.layout.visibility[toolId] !== false;
-                const checkedHtml = checked ? 'checked' : '';
-                const isFirst = index === 0;
-                const isLast = index === this.state.layout.order.length - 1;
-
-                return `
-                    <li class="layout-item" data-tool-id="${toolId}" draggable="true">
-                        <span class="layout-handle" title="拖拽排序">⠿</span>
-                        <label class="layout-toggle-wrap">
-                            <input type="checkbox" class="layout-toggle" data-tool-id="${toolId}" ${checkedHtml}>
-                            <span>${getToolCardLabel(toolId)}</span>
-                        </label>
-                        <div class="layout-item-actions">
-                            <button type="button" class="layout-mini-btn" data-action="move-tool-up" data-tool-id="${toolId}" ${isFirst ? 'disabled' : ''}>↑</button>
-                            <button type="button" class="layout-mini-btn" data-action="move-tool-down" data-tool-id="${toolId}" ${isLast ? 'disabled' : ''}>↓</button>
-                        </div>
-                    </li>
-                `;
-            })
-            .join('');
-    }
-
-    applyLayoutToDashboard() {
-        const dashboard = $('#dashboardGrid', this.root);
-        if (!dashboard) {
-            return;
-        }
-
-        const cards = Array.from(dashboard.querySelectorAll('[data-tool-card]'));
-        const cardMap = new Map(cards.map(card => [card.dataset.toolCard, card]));
-
-        for (const toolId of this.state.layout.order) {
-            const card = cardMap.get(toolId);
-            if (!card) {
-                continue;
-            }
-            dashboard.appendChild(card);
-        }
-
-        for (const [toolId, card] of cardMap.entries()) {
-            const visible = this.state.layout.visibility[toolId] !== false;
-            card.classList.toggle('hidden', !visible);
-        }
-    }
-
-    moveToolToIndex(toolId, toIndex) {
-        const fromIndex = this.state.layout.order.indexOf(toolId);
-        if (fromIndex < 0) {
-            return;
-        }
-
-        this.state.layout.order = moveItem(this.state.layout.order, fromIndex, toIndex);
-        this.saveLayout();
-        this.renderLayoutControls();
-        this.applyLayoutToDashboard();
-    }
-
-    moveToolBefore(draggedToolId, targetToolId) {
-        const toIndex = this.state.layout.order.indexOf(targetToolId);
-        if (toIndex < 0) {
-            return;
-        }
-
-        this.moveToolToIndex(draggedToolId, toIndex);
-    }
-
-    moveToolByStep(toolId, step) {
-        const index = this.state.layout.order.indexOf(toolId);
-        if (index < 0) {
-            return;
-        }
-
-        const nextIndex = index + step;
-        if (nextIndex < 0 || nextIndex >= this.state.layout.order.length) {
-            return;
-        }
-
-        this.moveToolToIndex(toolId, nextIndex);
-    }
-
-    resetLayout() {
-        this.state.layout = getDefaultLayout();
-        this.saveLayout();
-        this.renderLayoutControls();
-        this.applyLayoutToDashboard();
-        this.showToast('布局已恢复默认');
-    }
-
-    handleDragStart(event) {
-        const item = event.target.closest('.layout-item');
-        if (!item) {
-            return;
-        }
-
-        this.state.draggingToolId = item.dataset.toolId || '';
-        item.classList.add('dragging');
-
-        if (event.dataTransfer) {
-            event.dataTransfer.effectAllowed = 'move';
-            event.dataTransfer.setData('text/plain', this.state.draggingToolId);
-        }
-    }
-
-    handleDragOver(event) {
-        const targetItem = event.target.closest('.layout-item');
-        if (!targetItem || !this.state.draggingToolId) {
-            return;
-        }
-
-        event.preventDefault();
-        targetItem.classList.add('drag-over');
-        if (event.dataTransfer) {
-            event.dataTransfer.dropEffect = 'move';
-        }
-    }
-
-    handleDragLeave(event) {
-        const targetItem = event.target.closest('.layout-item');
-        if (!targetItem) {
-            return;
-        }
-
-        targetItem.classList.remove('drag-over');
-    }
-
-    handleDrop(event) {
-        const targetItem = event.target.closest('.layout-item');
-        if (!targetItem) {
-            return;
-        }
-
-        event.preventDefault();
-
-        const draggedToolId = this.state.draggingToolId
-            || event.dataTransfer?.getData('text/plain')
-            || '';
-        const targetToolId = targetItem.dataset.toolId || '';
-
-        if (draggedToolId && targetToolId && draggedToolId !== targetToolId) {
-            this.moveToolBefore(draggedToolId, targetToolId);
-            this.showToast('已调整工具顺序');
-        }
-
-        targetItem.classList.remove('drag-over');
-    }
-
-    handleDragEnd() {
-        this.state.draggingToolId = '';
-        this.root.querySelectorAll('.layout-item').forEach(item => {
-            item.classList.remove('dragging');
-            item.classList.remove('drag-over');
-        });
     }
 
     async refreshDeviceInfo(showToast = true) {
@@ -394,6 +181,12 @@ export class ToolboxApp {
         const { action } = actionElement.dataset;
 
         switch (action) {
+            case 'switch-view': {
+                const viewId = actionElement.dataset.view || 'home';
+                this.setActiveView(viewId);
+                break;
+            }
+
             case 'refresh-device': {
                 await triggerHaptics('light');
                 await this.refreshDeviceInfo(true);
@@ -543,23 +336,6 @@ export class ToolboxApp {
                 break;
             }
 
-            case 'move-tool-up': {
-                const toolId = actionElement.dataset.toolId || '';
-                this.moveToolByStep(toolId, -1);
-                break;
-            }
-
-            case 'move-tool-down': {
-                const toolId = actionElement.dataset.toolId || '';
-                this.moveToolByStep(toolId, 1);
-                break;
-            }
-
-            case 'reset-layout': {
-                this.resetLayout();
-                break;
-            }
-
             default:
                 break;
         }
@@ -634,19 +410,6 @@ export class ToolboxApp {
 
     async handleChange(event) {
         const target = event.target;
-
-        if (target.classList.contains('layout-toggle')) {
-            const toolId = target.dataset.toolId || '';
-            if (!TOOL_CARD_IDS.includes(toolId)) {
-                return;
-            }
-
-            this.state.layout.visibility[toolId] = target.checked;
-            this.saveLayout();
-            this.applyLayoutToDashboard();
-            return;
-        }
-
         if (target.id !== 'noteImageInput') {
             return;
         }
@@ -701,11 +464,6 @@ export class ToolboxApp {
             this.root.removeEventListener('click', this.handleClick);
             this.root.removeEventListener('submit', this.handleSubmit);
             this.root.removeEventListener('change', this.handleChange);
-            this.root.removeEventListener('dragstart', this.handleDragStart);
-            this.root.removeEventListener('dragover', this.handleDragOver);
-            this.root.removeEventListener('dragleave', this.handleDragLeave);
-            this.root.removeEventListener('drop', this.handleDrop);
-            this.root.removeEventListener('dragend', this.handleDragEnd);
         }
 
         await removeNetworkStatusListener();
