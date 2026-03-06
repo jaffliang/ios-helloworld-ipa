@@ -9,6 +9,9 @@
     --tone-yellow: #fff3cb;
     --tone-green: #ecf7df;
     --tone-mint: #e1f4e7;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --top-safe-space: max(var(--safe-top), 16px);
 }
 
 html,
@@ -49,7 +52,7 @@ body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    padding-top: env(safe-area-inset-top);
+    padding-top: var(--top-safe-space);
 }
 
 .app-main {
@@ -83,7 +86,7 @@ body {
     border-radius: 0;
     background: linear-gradient(180deg, #ead9a8 0%, #dfc27f 100%);
     box-shadow: 0 2px 0 rgba(90, 72, 57, 0.22);
-    padding: 5px 9px 4px;
+    padding: 9px 9px 5px;
     margin: 0 -12px 10px;
 }
 
@@ -128,7 +131,7 @@ body {
 .home-panel {
     gap: 10px;
     align-content: start;
-    padding-top: 10px;
+    padding-top: 22px;
 }
 
 .home-hero {
@@ -626,7 +629,7 @@ body {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
     gap: 2px;
-    padding: 7px 8px calc(9px + env(safe-area-inset-bottom));
+    padding: 7px 8px calc(9px + var(--safe-bottom));
     border-top: 3px solid var(--line);
     background: linear-gradient(180deg, #f3e9d1 0%, #ead9b7 100%);
     flex: 0 0 auto;
@@ -664,7 +667,7 @@ body {
 .floating-note-btn {
     position: fixed;
     right: 0;
-    top: calc(50% + env(safe-area-inset-top) / 2);
+    top: calc(50% + var(--safe-top) / 2);
     transform: translateY(-50%);
     width: 56px;
     height: 56px;
