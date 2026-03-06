@@ -1,120 +1,178 @@
 ﻿const NAV_ITEMS = [
-    { id: 'home', label: '\u9996\u9875', icon: '\ud83c\udfe0' },
-    { id: 'device', label: '\u8bbe\u5907', icon: '\ud83d\udcf1' },
-    { id: 'notes', label: '\u7b14\u8bb0', icon: '\ud83d\udcdd' },
-    { id: 'scan', label: '\u626b\u7801', icon: '\ud83d\udd0e' },
-    { id: 'reminders', label: '\u63d0\u9192', icon: '\u23f0' },
-    { id: 'settings', label: '\u8bbe\u7f6e', icon: '\u2699\ufe0f' }
+    { id: 'home', label: '首页', icon: 'nav-index-btn.png' },
+    { id: 'device', label: '信息', icon: 'nav-info-btn.png' },
+    { id: 'notes', label: '笔记', icon: 'nav-note-btn.png' },
+    { id: 'reminders', label: '提醒', icon: 'nav-remind-btn.png' },
+    { id: 'scan', label: '扫码', icon: 'nav-scan-btn.png' }
 ];
+
+const HOME_TOOLS = [
+    {
+        view: 'device',
+        icon: 'index-info-icon.png',
+        title: 'Device Detective',
+        subtitle: '设备检查',
+        tone: 'blue'
+    },
+    {
+        view: 'notes',
+        icon: 'index-note-icon.png',
+        title: 'Quick Notes',
+        subtitle: '笔记记录',
+        tone: 'yellow'
+    },
+    {
+        view: 'reminders',
+        icon: 'index-remind-icon.png',
+        title: 'Reminders',
+        subtitle: '提醒事项',
+        tone: 'green'
+    },
+    {
+        view: 'scan',
+        icon: 'index-scan-icon.png',
+        title: 'QR Scanner',
+        subtitle: '二维码解析',
+        tone: 'mint'
+    }
+];
+
+function asset(name) {
+    return `assets/${name}`;
+}
 
 function renderBottomNav() {
     return NAV_ITEMS
         .map(item => `
             <button class="bottom-tab" data-action="switch-view" data-view="${item.id}" data-view-switch="${item.id}">
-                <span class="tab-icon">${item.icon}</span>
+                <img class="tab-icon-image" src="${asset(item.icon)}" alt="${item.label}">
                 <span class="tab-text">${item.label}</span>
             </button>
         `)
         .join('');
 }
 
-function renderHomeQuickEntry(viewId, icon, title, subtitle) {
+function renderHomeTools() {
+    return HOME_TOOLS
+        .map(item => `
+            <button class="tool-entry" data-action="switch-view" data-view="${item.view}">
+                <span class="tool-icon-wrap tone-${item.tone}">
+                    <img class="tool-icon" src="${asset(item.icon)}" alt="${item.title}">
+                </span>
+                <span class="tool-title">${item.title}</span>
+                <span class="tool-subtitle">${item.subtitle}</span>
+            </button>
+        `)
+        .join('');
+}
+
+function renderSubpageHeader() {
     return `
-        <button class="quick-entry" data-action="switch-view" data-view="${viewId}">
-            <span class="quick-icon">${icon}</span>
-            <span class="quick-title">${title}</span>
-            <span class="quick-subtitle">${subtitle}</span>
-        </button>
+        <header class="subpage-header">
+            <button type="button" class="subpage-icon-btn" aria-label="菜单">
+                <img class="subpage-icon" src="${asset('left-menu-btn.png')}" alt="">
+            </button>
+            <h2 class="subpage-title">JEFF'S TOOLBOX</h2>
+            <button type="button" class="subpage-icon-btn" aria-label="设置">
+                <img class="subpage-icon" src="${asset('setting-btn.png')}" alt="">
+            </button>
+        </header>
     `;
 }
 
 export function getToolboxShell() {
     return `
         <div class="phone-shell">
-            <header class="app-header">
-                <div class="app-title-wrap">
-                    <h1 class="app-title">Jeff\u7684\u5de5\u5177\u7bb1</h1>
-                    <p class="app-subtitle">\u4e2a\u4eba\u5de5\u5177\u7bb1</p>
-                </div>
-            </header>
-
             <main class="app-main" id="appMain">
-                <section class="view-panel active" data-view-panel="home">
-                    <section class="hero-card sketch-card">
-                        <div class="hero-emoji">\ud83e\uddf0</div>
-                        <h2>Jeff\u7684\u5de5\u5177\u7bb1</h2>
-                        <p>\u8bbe\u5907\u68c0\u6d4b\u3001\u7b14\u8bb0\u6574\u7406\u3001\u63d0\u9192\u7ba1\u7406\u3001\u4e8c\u7ef4\u7801\u89e3\u6790</p>
+                <section class="view-panel active home-panel" data-view-panel="home">
+                    <section class="home-hero">
+                        <img class="hero-image" src="${asset('app-big-icon.png')}" alt="Jeff toolbox">
                     </section>
+                    <h1 class="home-title">JEFF'S TOOLBOX</h1>
 
-                    <section class="quick-grid">
-                        ${renderHomeQuickEntry('device', '\ud83d\udcf1', '\u8bbe\u5907\u68c0\u6d4b', '\u67e5\u770b\u8bbe\u5907\u72b6\u6001')}
-                        ${renderHomeQuickEntry('notes', '\ud83d\uddd2\ufe0f', '\u5feb\u6377\u7b14\u8bb0', '\u8bb0\u5f55\u56fe\u6587\u4fe1\u606f')}
-                        ${renderHomeQuickEntry('reminders', '\ud83d\udd14', '\u63d0\u9192\u4e8b\u9879', '\u6309\u65f6\u63d0\u9192')}
-                        ${renderHomeQuickEntry('scan', '\ud83d\udd33', '\u4e8c\u7ef4\u7801', '\u626b\u63cf\u5e76\u89e3\u91ca')}
-                        ${renderHomeQuickEntry('settings', '\u2699\ufe0f', '\u5de5\u5177\u8bbe\u7f6e', '\u7ba1\u7406\u5e03\u5c40\u4e0e\u6269\u5c55')}
+                    <section class="home-tool-grid">
+                        ${renderHomeTools()}
                     </section>
                 </section>
 
                 <section class="view-panel" data-view-panel="device">
+                    ${renderSubpageHeader()}
                     <section class="sketch-card">
-                        <h2 class="section-title">\u8bbe\u5907\u4fe1\u606f</h2>
+                        <h2 class="section-title">设备信息</h2>
                         <div class="action-grid">
-                            <button class="cartoon-button" data-action="refresh-device">\u5237\u65b0\u4fe1\u606f</button>
-                            <button class="cartoon-button" data-action="test-haptics">\u6d4b\u8bd5\u9707\u52a8</button>
-                            <button class="cartoon-button" data-action="test-notification">\u6d4b\u8bd5\u901a\u77e5</button>
-                            <button class="cartoon-button" data-action="copy-device">\u590d\u5236\u6458\u8981</button>
+                            <button class="cartoon-button" data-action="refresh-device">刷新信息</button>
+                            <button class="cartoon-button" data-action="test-haptics">测试震动</button>
+                            <button class="cartoon-button" data-action="test-notification">测试通知</button>
+                            <button class="cartoon-button" data-action="copy-device">复制摘要</button>
                         </div>
                         <div id="devicePanel" class="panel-content"></div>
                     </section>
                 </section>
 
                 <section class="view-panel" data-view-panel="notes">
-                    <section class="sketch-card">
-                        <h2 class="section-title">\u7b14\u8bb0\u8bb0\u5f55</h2>
+                    ${renderSubpageHeader()}
+
+                    <section id="notesListSection" class="notes-mode-section">
+                        <h2 class="section-title">笔记列表</h2>
+                        <div id="notesPanel" class="panel-content"></div>
+                    </section>
+
+                    <section id="noteDetailSection" class="notes-mode-section hidden">
+                        <h2 class="section-title">笔记详情</h2>
+                        <div id="noteDetailPanel" class="panel-content"></div>
+                    </section>
+
+                    <section id="noteEditorSection" class="sketch-card notes-mode-section hidden">
+                        <div class="notes-section-head">
+                            <h2 class="section-title">新增笔记</h2>
+                        </div>
                         <form id="noteForm" class="stack-form">
                             <label>
-                                \u6807\u9898
-                                <input type="text" name="noteTitle" maxlength="40" placeholder="\u4f8b\u5982\uff1a\u4f1a\u8bae\u7eaa\u8981\u3001\u62a5\u9500\u5355">
+                                标题
+                                <input type="text" name="noteTitle" maxlength="40" placeholder="例如：会议纪要、报销单">
                             </label>
                             <label>
-                                \u5185\u5bb9
-                                <textarea name="noteContent" rows="5" placeholder="\u8f93\u5165\u6587\u672c\uff0c\u4fdd\u5b58\u65f6\u81ea\u52a8\u6392\u7248"></textarea>
+                                内容
+                                <textarea name="noteContent" class="note-content-input" rows="12" placeholder="输入文本，保存时自动排版"></textarea>
                             </label>
 
                             <div class="action-grid compact">
-                                <button type="button" class="cartoon-button" data-action="note-camera">\u62cd\u7167\u9644\u56fe</button>
-                                <button type="button" class="cartoon-button" data-action="note-pick-photo">\u76f8\u518c\u9644\u56fe</button>
-                                <label class="upload-button cartoon-button">
-                                    \u4e0a\u4f20\u56fe\u7247
+                                <button type="button" class="cartoon-button note-mini-btn" data-action="note-camera">拍照附图</button>
+                                <button type="button" class="cartoon-button note-mini-btn" data-action="note-pick-photo">相册附图</button>
+                                <label class="upload-button cartoon-button note-mini-btn">
+                                    上传图片
                                     <input id="noteImageInput" type="file" accept="image/*" hidden>
                                 </label>
-                                <button type="button" class="cartoon-button" data-action="clear-note-image">\u6e05\u9664\u9644\u56fe</button>
+                                <button type="button" class="cartoon-button note-mini-btn" data-action="clear-note-image">清除附图</button>
                             </div>
 
                             <div id="noteDraftImage" class="draft-image hidden"></div>
-                            <button type="submit" class="cartoon-button">\u4fdd\u5b58\u7b14\u8bb0</button>
+                            <button type="submit" class="cartoon-button note-save-btn">保存笔记</button>
                         </form>
                     </section>
 
-                    <section class="sketch-card">
-                        <h2 class="section-title">\u7b14\u8bb0\u5217\u8868</h2>
-                        <div id="notesPanel" class="panel-content"></div>
-                    </section>
-                </section>
-
-                <section class="view-panel" data-view-panel="scan">
-                    <section class="sketch-card">
-                        <h2 class="section-title">\u4e8c\u7ef4\u7801\u89e3\u91ca</h2>
-                        <div class="action-grid compact">
-                            <button class="cartoon-button" data-action="scan-qr-live">\u5b9e\u65f6\u626b\u7801</button>
-                            <button class="cartoon-button" data-action="scan-qr-image">\u56fe\u7247\u8bc6\u7801</button>
-                            <button class="cartoon-button" data-action="copy-qr-result">\u590d\u5236\u7ed3\u679c</button>
-                        </div>
-                        <div id="qrPanel" class="panel-content"></div>
-                    </section>
+                    <button
+                        type="button"
+                        id="floatingNoteAddButton"
+                        class="floating-note-btn"
+                        data-action="open-note-editor"
+                        aria-label="添加笔记"
+                    >
+                        ＋
+                    </button>
+                    <button
+                        type="button"
+                        id="floatingNoteBackButton"
+                        class="floating-note-btn floating-note-btn-back hidden"
+                        data-action="back-note-list"
+                        aria-label="返回列表"
+                    >
+                        ←
+                    </button>
                 </section>
 
                 <section class="view-panel" data-view-panel="reminders">
+                    ${renderSubpageHeader()}
                     <section class="sketch-card">
                         <h2 class="section-title">\u63d0\u9192\u529f\u80fd</h2>
                         <form id="reminderForm" class="stack-form">
@@ -126,6 +184,51 @@ export function getToolboxShell() {
                                 \u63d0\u9192\u65f6\u95f4
                                 <input type="datetime-local" name="reminderAt" required>
                             </label>
+                            <label>
+                                \u91cd\u590d\u89c4\u5219
+                                <select id="reminderRepeatType" name="repeatType">
+                                    <option value="once">\u4ec5\u4e00\u6b21</option>
+                                    <option value="daily">\u6bcf\u5929</option>
+                                    <option value="weekdays">\u6bcf\u4e2a\u5de5\u4f5c\u65e5</option>
+                                    <option value="weekly">\u6307\u5b9a\u661f\u671f\u51e0</option>
+                                    <option value="monthly">\u6bcf\u6708</option>
+                                    <option value="yearly">\u6bcf\u5e74</option>
+                                </select>
+                            </label>
+                            <div id="reminderWeekdayField" class="reminder-weekday-field hidden">
+                                <p class="weekday-field-label">\u9009\u62e9\u661f\u671f</p>
+                                <div class="weekday-chip-group">
+                                    <label class="weekday-chip">
+                                        <input type="checkbox" name="repeatWeekdays" value="1">
+                                        <span>\u5468\u4e00</span>
+                                    </label>
+                                    <label class="weekday-chip">
+                                        <input type="checkbox" name="repeatWeekdays" value="2">
+                                        <span>\u5468\u4e8c</span>
+                                    </label>
+                                    <label class="weekday-chip">
+                                        <input type="checkbox" name="repeatWeekdays" value="3">
+                                        <span>\u5468\u4e09</span>
+                                    </label>
+                                    <label class="weekday-chip">
+                                        <input type="checkbox" name="repeatWeekdays" value="4">
+                                        <span>\u5468\u56db</span>
+                                    </label>
+                                    <label class="weekday-chip">
+                                        <input type="checkbox" name="repeatWeekdays" value="5">
+                                        <span>\u5468\u4e94</span>
+                                    </label>
+                                    <label class="weekday-chip">
+                                        <input type="checkbox" name="repeatWeekdays" value="6">
+                                        <span>\u5468\u516d</span>
+                                    </label>
+                                    <label class="weekday-chip">
+                                        <input type="checkbox" name="repeatWeekdays" value="0">
+                                        <span>\u5468\u65e5</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <p id="reminderRepeatHint" class="reminder-repeat-hint">\u5f53\u524d\uff1a\u4ec5\u4e00\u6b21</p>
                             <button type="submit" class="cartoon-button">\u521b\u5efa\u63d0\u9192</button>
                         </form>
                     </section>
@@ -136,23 +239,16 @@ export function getToolboxShell() {
                     </section>
                 </section>
 
-                <section class="view-panel" data-view-panel="settings">
+                <section class="view-panel" data-view-panel="scan">
+                    ${renderSubpageHeader()}
                     <section class="sketch-card">
-                        <h2 class="section-title">\u5de5\u5177\u8bbe\u7f6e</h2>
-                        <div class="panel-content">
-                            <div class="info-item">
-                                <span class="info-label">\u4e3b\u9898\u6837\u5f0f</span>
-                                <span class="info-value">\u624b\u7ed8\u6e10\u53d8</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="info-label">\u5bfc\u822a\u6a21\u5f0f</span>
-                                <span class="info-value">\u5e95\u90e8\u6807\u7b7e\u680f</span>
-                            </div>
-                            <div class="info-item">
-                                <span class="info-label">\u66f4\u591a\u5de5\u5177</span>
-                                <span class="info-value">\u6301\u7eed\u6269\u5c55\u4e2d</span>
-                            </div>
+                        <h2 class="section-title">二维码解释</h2>
+                        <div class="action-grid compact">
+                            <button class="cartoon-button" data-action="scan-qr-live">实时扫码</button>
+                            <button class="cartoon-button" data-action="scan-qr-image">图片识码</button>
+                            <button class="cartoon-button" data-action="copy-qr-result">复制结果</button>
                         </div>
+                        <div id="qrPanel" class="panel-content"></div>
                     </section>
                 </section>
             </main>
@@ -167,3 +263,4 @@ export function getToolboxShell() {
 }
 
 export const APP_VIEWS = NAV_ITEMS.map(item => item.id);
+

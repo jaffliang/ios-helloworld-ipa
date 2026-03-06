@@ -251,10 +251,128 @@ export async function sendTestNotification(title, body) {
     }
 }
 
-export async function scheduleReminderNotification({ notificationId, title, body, dueAt }) {
+function normalizeNotificationIdList(notificationIds, fallbackNotificationId, minCount = 1) {
+    const raw = [];
+    if (Array.isArray(notificationIds)) {
+        raw.push(...notificationIds);
+    }
+    if (fallbackNotificationId) {
+        raw.push(fallbackNotificationId);
+    }
+
+    const deduped = Array.from(new Set(
+        raw
+            .map(id => Number(id))
+            .filter(id => Number.isInteger(id) && id > 0)
+    ));
+
+    while (deduped.length < minCount) {
+        deduped.push(Math.floor((Date.now() + Math.floor(Math.random() * 1000)) % 2000000000));
+    }
+
+    return deduped;
+}
+
+function normalizeRepeatWeekdays(weekdays) {
+    if (!Array.isArray(weekdays)) {
+        return [];
+    }
+
+    const parsed = weekdays
+        .map(item => Number(item))
+        .filter(item => Number.isInteger(item) && item >= 0 && item <= 6);
+
+    return Array.from(new Set(parsed)).sort((a, b) => a - b);
+}
+
+function toPluginWeekday(weekday) {
+    return weekday === 0 ? 1 : weekday + 1;
+}
+
+function buildRecurringNotifications({
+    notificationIds,
+    title,
+    body,
+    dueAt,
+    startAt,
+    repeatType,
+    repeatWeekdays
+}) {
+    const parsedDueAt = new Date(dueAt);
+    const dueAtDate = Number.isNaN(parsedDueAt.getTime()) ? new Date() : parsedDueAt;
+
+    const parsedStartAt = new Date(startAt || dueAt);
+    const timeSource = Number.isNaN(parsedStartAt.getTime()) ? dueAtDate : parsedStartAt;
+    const hour = timeSource.getHours();
+    const minute = timeSource.getMinutes();
+    const normalizedRepeatType = String(repeatType || 'once').trim().toLowerCase();
+
+    if (normalizedRepeatType === 'weekdays' || normalizedRepeatType === 'weekly') {
+        const weekdays = normalizedRepeatType === 'weekdays'
+            ? [1, 2, 3, 4, 5]
+            : normalizeRepeatWeekdays(repeatWeekdays);
+        const safeWeekdays = weekdays.length > 0 ? weekdays : [timeSource.getDay()];
+        const safeIds = normalizeNotificationIdList(notificationIds, 0, safeWeekdays.length);
+
+        return safeWeekdays.map((weekday, index) => ({
+            id: safeIds[index],
+            title,
+            body,
+            schedule: {
+                on: {
+                    weekday: toPluginWeekday(weekday),
+                    hour,
+                    minute
+                },
+                repeats: true
+            },
+            sound: 'default'
+        }));
+    }
+
+    const safeIds = normalizeNotificationIdList(notificationIds, 0, 1);
+    const everyMap = {
+        daily: 'day',
+        monthly: 'month',
+        yearly: 'year'
+    };
+    const schedule = everyMap[normalizedRepeatType]
+        ? {
+            at: dueAtDate,
+            repeats: true,
+            every: everyMap[normalizedRepeatType]
+        }
+        : {
+            at: dueAtDate
+        };
+
+    return [
+        {
+            id: safeIds[0],
+            title,
+            body,
+            schedule,
+            sound: 'default'
+        }
+    ];
+}
+
+export async function scheduleReminderNotification({
+    notificationId,
+    notificationIds,
+    title,
+    body,
+    dueAt,
+    startAt,
+    repeatType,
+    repeatWeekdays
+}) {
     const { LocalNotifications } = getPlugins();
     if (!LocalNotifications || typeof LocalNotifications.schedule !== 'function') {
-        return false;
+        return {
+            scheduled: false,
+            notificationIds: normalizeNotificationIdList(notificationIds, notificationId, 1)
+        };
     }
 
     try {
@@ -262,32 +380,51 @@ export async function scheduleReminderNotification({ notificationId, title, body
             await LocalNotifications.requestPermissions();
         }
 
-        await LocalNotifications.schedule({
-            notifications: [
-                {
-                    id: notificationId,
-                    title,
-                    body,
-                    schedule: { at: new Date(dueAt) },
-                    sound: 'default'
-                }
-            ]
+        const notifications = buildRecurringNotifications({
+            notificationIds: normalizeNotificationIdList(notificationIds, notificationId, 1),
+            title,
+            body,
+            dueAt,
+            startAt,
+            repeatType,
+            repeatWeekdays
         });
-        return true;
+
+        await LocalNotifications.schedule({ notifications });
+        return {
+            scheduled: true,
+            notificationIds: notifications.map(item => item.id)
+        };
     } catch (error) {
         console.warn('Reminder scheduling failed:', error);
-        return false;
+        return {
+            scheduled: false,
+            notificationIds: normalizeNotificationIdList(notificationIds, notificationId, 1)
+        };
     }
 }
 
-export async function cancelReminderNotification(notificationId) {
+export async function cancelReminderNotification(notificationIdsOrSingle) {
+    const notificationIds = Array.isArray(notificationIdsOrSingle)
+        ? notificationIdsOrSingle
+        : [notificationIdsOrSingle];
+    const parsedIds = notificationIds
+        .map(id => Number(id))
+        .filter(id => Number.isInteger(id) && id > 0);
+
+    if (parsedIds.length === 0) {
+        return false;
+    }
+
     const { LocalNotifications } = getPlugins();
     if (!LocalNotifications || typeof LocalNotifications.cancel !== 'function') {
         return false;
     }
 
     try {
-        await LocalNotifications.cancel({ notifications: [{ id: notificationId }] });
+        await LocalNotifications.cancel({
+            notifications: parsedIds.map(id => ({ id }))
+        });
         return true;
     } catch (error) {
         console.warn('Reminder cancel failed:', error);

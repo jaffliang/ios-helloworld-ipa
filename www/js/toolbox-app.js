@@ -5,6 +5,7 @@ import {
     renderQrPanel,
     renderNoteDraftImage,
     renderNotesPanel,
+    renderNoteDetailPanel,
     renderRemindersPanel
 } from './ui/panels.js';
 import {
@@ -38,6 +39,26 @@ import {
     removeReminder
 } from './services/reminder-service.js';
 
+const WEEKDAY_LABELS = [
+    '\u5468\u65e5',
+    '\u5468\u4e00',
+    '\u5468\u4e8c',
+    '\u5468\u4e09',
+    '\u5468\u56db',
+    '\u5468\u4e94',
+    '\u5468\u516d'
+];
+const WORKDAY_WEEKDAYS = [1, 2, 3, 4, 5];
+
+function toDateTimeLocalValue(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hour = String(date.getHours()).padStart(2, '0');
+    const minute = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hour}:${minute}`;
+}
+
 export class ToolboxApp {
     constructor(rootSelector = '#app') {
         this.rootSelector = rootSelector;
@@ -50,6 +71,8 @@ export class ToolboxApp {
             qrExplanation: null,
             noteDraftImage: '',
             notes: [],
+            activeNoteId: '',
+            notesMode: 'list',
             reminders: []
         };
 
@@ -92,6 +115,8 @@ export class ToolboxApp {
         this.renderReminders();
         this.renderQr();
         this.renderNoteDraft();
+        this.prepareReminderForm();
+        this.setNotesMode('list');
         this.setActiveView(this.state.activeView);
 
         this.startUptimeTicker();
@@ -118,9 +143,182 @@ export class ToolboxApp {
             button.classList.toggle('active', button.dataset.viewSwitch === viewId);
         });
 
+        if (viewId === 'notes') {
+            this.setNotesMode('list');
+        }
+
+        if (viewId === 'reminders') {
+            this.state.reminders = getAllReminders();
+            this.renderReminders();
+            this.prepareReminderForm();
+        }
+
         const appMain = $('#appMain', this.root);
         if (appMain) {
             appMain.scrollTop = 0;
+        }
+    }
+
+    setNotesMode(mode = 'list', noteId = '') {
+        this.state.notesMode = mode;
+        if (noteId) {
+            this.state.activeNoteId = String(noteId);
+        }
+
+        const listSection = $('#notesListSection', this.root);
+        const detailSection = $('#noteDetailSection', this.root);
+        const editorSection = $('#noteEditorSection', this.root);
+        const floatingAddButton = $('#floatingNoteAddButton', this.root);
+        const floatingBackButton = $('#floatingNoteBackButton', this.root);
+
+        if (listSection) {
+            listSection.classList.toggle('hidden', mode !== 'list');
+        }
+
+        if (detailSection) {
+            detailSection.classList.toggle('hidden', mode !== 'detail');
+        }
+
+        if (editorSection) {
+            editorSection.classList.toggle('hidden', mode !== 'editor');
+        }
+
+        if (floatingAddButton) {
+            floatingAddButton.classList.toggle('hidden', mode !== 'list');
+        }
+
+        if (floatingBackButton) {
+            floatingBackButton.classList.toggle('hidden', mode === 'list');
+        }
+
+        this.renderNoteDetail();
+    }
+
+    resetNoteEditor() {
+        const form = $('#noteForm', this.root);
+        if (form) {
+            form.reset();
+        }
+
+        this.state.noteDraftImage = '';
+        this.renderNoteDraft();
+    }
+
+    getNoteById(noteId) {
+        if (!noteId) {
+            return null;
+        }
+
+        return this.state.notes.find(note => note.id === String(noteId)) || null;
+    }
+
+    prepareReminderForm() {
+        const reminderForm = $('#reminderForm', this.root);
+        if (!reminderForm) {
+            return;
+        }
+
+        const reminderAtInput = reminderForm.querySelector('input[name="reminderAt"]');
+        if (reminderAtInput) {
+            const minDate = new Date(Date.now() + 60 * 1000);
+            minDate.setSeconds(0, 0);
+            reminderAtInput.min = toDateTimeLocalValue(minDate);
+
+            if (!reminderAtInput.value) {
+                const defaultDate = new Date(Date.now() + 5 * 60 * 1000);
+                defaultDate.setSeconds(0, 0);
+                reminderAtInput.value = toDateTimeLocalValue(defaultDate);
+            }
+        }
+
+        const repeatTypeSelect = $('#reminderRepeatType', reminderForm);
+        if (repeatTypeSelect && !repeatTypeSelect.value) {
+            repeatTypeSelect.value = 'once';
+        }
+
+        this.updateReminderRepeatControls();
+    }
+
+    getReminderRepeatHintText(repeatType, selectedWeekdays) {
+        if (repeatType === 'daily') {
+            return '\u5f53\u524d\uff1a\u6bcf\u5929\uff08\u6309\u5f53\u524d\u65f6\u95f4\u91cd\u590d\uff09';
+        }
+
+        if (repeatType === 'weekdays') {
+            return '\u5f53\u524d\uff1a\u6bcf\u4e2a\u5de5\u4f5c\u65e5\uff08\u5468\u4e00\u5230\u5468\u4e94\uff09';
+        }
+
+        if (repeatType === 'weekly') {
+            if (!Array.isArray(selectedWeekdays) || selectedWeekdays.length === 0) {
+                return '\u5f53\u524d\uff1a\u8bf7\u9009\u62e9\u81f3\u5c11\u4e00\u4e2a\u661f\u671f';
+            }
+
+            const labels = selectedWeekdays.map(day => WEEKDAY_LABELS[day]).join('\u3001');
+            return `\u5f53\u524d\uff1a\u6bcf\u5468 ${labels}`;
+        }
+
+        if (repeatType === 'monthly') {
+            return '\u5f53\u524d\uff1a\u6bcf\u6708\uff08\u6309\u9009\u62e9\u65e5\u671f\uff09';
+        }
+
+        if (repeatType === 'yearly') {
+            return '\u5f53\u524d\uff1a\u6bcf\u5e74\uff08\u6309\u9009\u62e9\u65e5\u671f\uff09';
+        }
+
+        return '\u5f53\u524d\uff1a\u4ec5\u4e00\u6b21';
+    }
+
+    updateReminderRepeatControls() {
+        const reminderForm = $('#reminderForm', this.root);
+        if (!reminderForm) {
+            return;
+        }
+
+        const repeatTypeSelect = $('#reminderRepeatType', reminderForm);
+        const repeatType = String(repeatTypeSelect?.value || 'once').toLowerCase();
+        const weekdayField = $('#reminderWeekdayField', reminderForm);
+        const weekdayInputs = Array.from(reminderForm.querySelectorAll('input[name="repeatWeekdays"]'));
+        const reminderAtInput = reminderForm.querySelector('input[name="reminderAt"]');
+        const reminderAtDate = reminderAtInput ? new Date(reminderAtInput.value) : new Date();
+        const fallbackWeekday = Number.isNaN(reminderAtDate.getTime()) ? 1 : reminderAtDate.getDay();
+
+        if (repeatType === 'weekly') {
+            if (weekdayField) {
+                weekdayField.classList.remove('hidden');
+            }
+
+            const hasChecked = weekdayInputs.some(input => input.checked);
+            if (!hasChecked && weekdayInputs.length > 0) {
+                const fallbackInput = weekdayInputs.find(input => Number(input.value) === fallbackWeekday) || weekdayInputs[0];
+                if (fallbackInput) {
+                    fallbackInput.checked = true;
+                }
+            }
+        } else {
+            if (weekdayField) {
+                weekdayField.classList.add('hidden');
+            }
+
+            if (repeatType === 'weekdays') {
+                weekdayInputs.forEach(input => {
+                    input.checked = WORKDAY_WEEKDAYS.includes(Number(input.value));
+                });
+            } else {
+                weekdayInputs.forEach(input => {
+                    input.checked = false;
+                });
+            }
+        }
+
+        const selectedWeekdays = weekdayInputs
+            .filter(input => input.checked)
+            .map(input => Number(input.value))
+            .filter(day => Number.isInteger(day) && day >= 0 && day <= 6)
+            .sort((a, b) => a - b);
+
+        const repeatHint = $('#reminderRepeatHint', reminderForm);
+        if (repeatHint) {
+            repeatHint.textContent = this.getReminderRepeatHintText(repeatType, selectedWeekdays);
         }
     }
 
@@ -166,6 +364,17 @@ export class ToolboxApp {
 
     renderNotes() {
         renderNotesPanel($('#notesPanel', this.root), this.state.notes);
+        this.renderNoteDetail();
+    }
+
+    renderNoteDetail() {
+        const note = this.getNoteById(this.state.activeNoteId);
+        renderNoteDetailPanel($('#noteDetailPanel', this.root), note);
+
+        if (this.state.notesMode === 'detail' && !note) {
+            this.state.activeNoteId = '';
+            this.setNotesMode('list');
+        }
     }
 
     renderReminders() {
@@ -184,6 +393,30 @@ export class ToolboxApp {
             case 'switch-view': {
                 const viewId = actionElement.dataset.view || 'home';
                 this.setActiveView(viewId);
+                break;
+            }
+
+            case 'open-note-editor': {
+                this.state.activeNoteId = '';
+                this.resetNoteEditor();
+                this.setNotesMode('editor');
+                break;
+            }
+
+            case 'back-note-list': {
+                this.state.activeNoteId = '';
+                this.setNotesMode('list');
+                break;
+            }
+
+            case 'view-note-detail': {
+                const noteId = actionElement.dataset.noteId;
+                if (!noteId) {
+                    return;
+                }
+
+                this.state.activeNoteId = String(noteId);
+                this.setNotesMode('detail', noteId);
                 break;
             }
 
@@ -315,8 +548,16 @@ export class ToolboxApp {
                 if (!noteId) {
                     return;
                 }
-
+                const confirmDeleteNote = window.confirm('确定删除这条笔记吗？此操作不可撤销。');
+                if (!confirmDeleteNote) {
+                    break;
+                }
                 this.state.notes = deleteNote(noteId);
+                if (this.state.activeNoteId === String(noteId)) {
+                    this.state.activeNoteId = '';
+                    this.setNotesMode('list');
+                }
+
                 this.renderNotes();
                 this.showToast('笔记已删除');
                 break;
@@ -327,7 +568,10 @@ export class ToolboxApp {
                 if (!reminderId) {
                     return;
                 }
-
+                const confirmDeleteReminder = window.confirm('确定删除这条提醒吗？');
+                if (!confirmDeleteReminder) {
+                    break;
+                }
                 this.state.reminders = await removeReminder(reminderId, {
                     cancel: cancelReminderNotification
                 });
@@ -363,10 +607,10 @@ export class ToolboxApp {
             });
 
             this.state.notes = getAllNotes();
-            this.state.noteDraftImage = '';
-            form.reset();
+            this.state.activeNoteId = '';
+            this.resetNoteEditor();
             this.renderNotes();
-            this.renderNoteDraft();
+            this.setNotesMode('list');
             this.showToast('笔记已保存（已自动排版）');
             return;
         }
@@ -377,9 +621,19 @@ export class ToolboxApp {
             const formData = new FormData(form);
             const reminderTitle = String(formData.get('reminderTitle') || '').trim();
             const reminderAt = String(formData.get('reminderAt') || '').trim();
+            const repeatType = String(formData.get('repeatType') || 'once').trim().toLowerCase();
+            const repeatWeekdays = formData
+                .getAll('repeatWeekdays')
+                .map(item => Number(item))
+                .filter(item => Number.isInteger(item) && item >= 0 && item <= 6);
 
             if (!reminderTitle || !reminderAt) {
-                this.showToast('请填写完整提醒信息');
+                this.showToast('\u8bf7\u586b\u5199\u5b8c\u6574\u63d0\u9192\u4fe1\u606f');
+                return;
+            }
+
+            if (repeatType === 'weekly' && repeatWeekdays.length === 0) {
+                this.showToast('\u8bf7\u81f3\u5c11\u9009\u62e9\u4e00\u4e2a\u661f\u671f');
                 return;
             }
 
@@ -387,7 +641,9 @@ export class ToolboxApp {
                 const reminder = await addReminder(
                     {
                         title: reminderTitle,
-                        dueAtLocal: reminderAt
+                        dueAtLocal: reminderAt,
+                        repeatType,
+                        repeatWeekdays
                     },
                     {
                         schedule: scheduleReminderNotification
@@ -396,20 +652,26 @@ export class ToolboxApp {
 
                 this.state.reminders = getAllReminders();
                 form.reset();
+                this.prepareReminderForm();
                 this.renderReminders();
 
                 const reminderMessage = reminder.scheduled
-                    ? '提醒已创建并安排系统通知'
-                    : '提醒已创建（系统通知不可用）';
+                    ? '\u63d0\u9192\u5df2\u521b\u5efa\u5e76\u5b89\u6392\u7cfb\u7edf\u901a\u77e5'
+                    : '\u63d0\u9192\u5df2\u521b\u5efa\uff08\u7cfb\u7edf\u901a\u77e5\u4e0d\u53ef\u7528\uff09';
                 this.showToast(reminderMessage);
             } catch (error) {
-                this.showToast(`创建提醒失败：${error.message || '未知错误'}`);
+                this.showToast(`\u521b\u5efa\u63d0\u9192\u5931\u8d25\uff1a${error.message || '\u672a\u77e5\u9519\u8bef'}`);
             }
         }
     }
 
     async handleChange(event) {
         const target = event.target;
+        if (target.id === 'reminderRepeatType' || target.name === 'repeatWeekdays' || target.name === 'reminderAt') {
+            this.updateReminderRepeatControls();
+            return;
+        }
+
         if (target.id !== 'noteImageInput') {
             return;
         }
@@ -423,9 +685,9 @@ export class ToolboxApp {
             const imageData = await readFileAsDataUrl(file);
             this.state.noteDraftImage = imageData;
             this.renderNoteDraft();
-            this.showToast('图片上传成功');
+            this.showToast('\u56fe\u7247\u4e0a\u4f20\u6210\u529f');
         } catch (error) {
-            this.showToast(`图片读取失败：${error.message || '未知错误'}`);
+            this.showToast(`\u56fe\u7247\u8bfb\u53d6\u5931\u8d25\uff1a${error.message || '\u672a\u77e5\u9519\u8bef'}`);
         } finally {
             target.value = '';
         }
@@ -469,3 +731,4 @@ export class ToolboxApp {
         await removeNetworkStatusListener();
     }
 }
+
