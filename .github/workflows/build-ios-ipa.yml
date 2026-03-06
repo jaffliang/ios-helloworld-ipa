@@ -27,6 +27,14 @@ jobs:
       - name: Verify Capacitor plugins
         run: npm ls @capacitor/haptics @capacitor/device @capacitor/network @capacitor/local-notifications @capacitor/clipboard
 
+      - name: Ensure iOS platform exists
+        run: |
+          if [ -d "ios/App" ]; then
+            echo "iOS platform already exists, skip adding."
+          else
+            npx cap add ios
+          fi
+
       - name: Sync iOS project
         run: npx cap sync ios
 
