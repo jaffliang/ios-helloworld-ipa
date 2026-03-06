@@ -163,6 +163,10 @@ body {
     content: '⚙️';
 }
 
+.card-media h2::before {
+    content: '📷';
+}
+
 /* === 电池状态指示器 === */
 .battery-indicator {
     display: inline-flex;
@@ -335,6 +339,39 @@ body {
 
 .toast.show {
     opacity: 1;
+}
+
+.media-note {
+    color: #555;
+    font-size: 14px;
+    margin-bottom: 12px;
+}
+
+.photo-preview {
+    width: 100%;
+    border-radius: 12px;
+    border: 3px solid #333;
+    box-shadow: 3px 3px 0 #333;
+    margin-top: 8px;
+    margin-bottom: 10px;
+}
+
+.scan-result {
+    margin-top: 10px;
+    background: #f7fbff;
+    border: 3px solid #333;
+    border-radius: 12px;
+    padding: 12px;
+}
+
+.scan-value {
+    max-width: 60%;
+}
+
+.media-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 10px;
 }
 
 /* === 隐藏类 === */

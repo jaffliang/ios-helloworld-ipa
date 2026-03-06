@@ -25,7 +25,7 @@ jobs:
         run: npm install
 
       - name: Verify Capacitor plugins
-        run: npm ls @capacitor/haptics @capacitor/device @capacitor/network @capacitor/local-notifications @capacitor/clipboard
+        run: npm ls @capacitor/haptics @capacitor/device @capacitor/network @capacitor/local-notifications @capacitor/clipboard @capacitor/camera @capacitor-mlkit/barcode-scanning
 
       - name: Ensure iOS platform exists
         run: |
@@ -37,6 +37,19 @@ jobs:
 
       - name: Sync iOS project
         run: npx cap sync ios
+
+      - name: Inject iOS privacy usage descriptions
+        run: |
+          PLIST="ios/App/App/Info.plist"
+
+          /usr/libexec/PlistBuddy -c "Set :NSCameraUsageDescription This app uses the camera to take photos and scan QR codes." "$PLIST" || \
+          /usr/libexec/PlistBuddy -c "Add :NSCameraUsageDescription string This app uses the camera to take photos and scan QR codes." "$PLIST"
+
+          /usr/libexec/PlistBuddy -c "Set :NSPhotoLibraryUsageDescription This app can access photos when you choose images from your library." "$PLIST" || \
+          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryUsageDescription string This app can access photos when you choose images from your library." "$PLIST"
+
+          /usr/libexec/PlistBuddy -c "Set :NSPhotoLibraryAddUsageDescription This app can save captured photos to your photo library." "$PLIST" || \
+          /usr/libexec/PlistBuddy -c "Add :NSPhotoLibraryAddUsageDescription string This app can save captured photos to your photo library." "$PLIST"
 
       - name: Build unsigned IPA
         run: |

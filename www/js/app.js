@@ -1,417 +1,474 @@
-/**
- * 主应用逻辑
- * 整合设备信息、用户交互和数据持久化
+﻿/**
+ * Main application controller.
  */
 
 import DeviceInfo from './device-info.js';
 
 const App = {
-    // 应用状态
     state: {
         deviceInfo: null,
-        autoRefresh: false,
         refreshInterval: null,
-        preferences: {}
+        preferences: {},
+        latestPhoto: null,
+        latestScan: null
     },
 
-    /**
-     * 初始化应用
-     */
     async init() {
-        console.log('🚀 应用初始化中...');
+        console.log('Initializing app...');
 
         try {
-            // 设置应用启动时间（用于计算运行时间）
             if (!localStorage.getItem('appStartTime')) {
                 localStorage.setItem('appStartTime', Date.now());
             }
 
-            // 加载用户偏好设置
             this.loadPreferences();
-
-            // 初始化设备信息模块
             await DeviceInfo.init();
-
-            // 渲染界面
             this.renderUI();
-
-            // 获取设备信息
             await this.loadDeviceInfo();
+            await this.setupNetworkListener();
 
-            // 监听网络状态变化
-            this.setupNetworkListener();
-
-            // 设置自动刷新
             if (this.state.preferences.autoRefresh) {
                 this.startAutoRefresh();
             }
 
-            console.log('✅ 应用初始化完成');
+            this.updateAutoRefreshButtonLabel();
+            console.log('App initialized.');
         } catch (error) {
-            console.error('❌ 应用初始化失败:', error);
-            this.showError('初始化失败，请刷新页面重试');
+            console.error('App init failed:', error);
+            this.showError('Initialization failed. Please try again.');
         }
     },
 
-    /**
-     * 加载用户偏好设置
-     */
     loadPreferences() {
         const saved = localStorage.getItem('appPreferences');
-        if (saved) {
-            try {
-                this.state.preferences = JSON.parse(saved);
-            } catch (error) {
-                console.error('加载偏好设置失败:', error);
-                this.state.preferences = this.getDefaultPreferences();
-            }
-        } else {
+        if (!saved) {
+            this.state.preferences = this.getDefaultPreferences();
+            return;
+        }
+
+        try {
+            this.state.preferences = JSON.parse(saved);
+        } catch (error) {
+            console.error('Failed to parse preferences:', error);
             this.state.preferences = this.getDefaultPreferences();
         }
     },
 
-    /**
-     * 获取默认偏好设置
-     */
     getDefaultPreferences() {
         return {
             autoRefresh: false,
-            refreshInterval: 30000, // 30秒
+            refreshInterval: 30000,
             showBattery: true,
             showNetwork: true,
             showUptime: true
         };
     },
 
-    /**
-     * 保存偏好设置
-     */
     savePreferences() {
         localStorage.setItem('appPreferences', JSON.stringify(this.state.preferences));
     },
 
-    /**
-     * 渲染界面
-     */
     renderUI() {
         const container = document.getElementById('app');
-        if (!container) return;
+        if (!container) {
+            return;
+        }
 
         container.innerHTML = `
             <div class="header">
-                <h1>📱 iOS 设备信息面板</h1>
-                <div class="subtitle">查看您的设备详情</div>
+                <h1>iOS Device Info Panel</h1>
+                <div class="subtitle">Capacitor Demo with native features</div>
             </div>
 
-            <!-- 加载中 -->
             <div id="loading" class="loading">
                 <div class="loading-spinner"></div>
-                <p style="margin-top: 16px;">正在获取设备信息...</p>
+                <p style="margin-top: 16px;">Loading device data...</p>
             </div>
 
-            <!-- 设备信息卡片 -->
             <div id="deviceCard" class="cartoon-card card-primary hidden">
-                <h2>设备信息</h2>
+                <h2>Device Info</h2>
                 <div id="deviceInfoList"></div>
             </div>
 
-            <!-- 电池信息卡片 -->
             <div id="batteryCard" class="cartoon-card card-battery hidden">
-                <h2>电池状态</h2>
+                <h2>Battery</h2>
                 <div id="batteryInfo"></div>
             </div>
 
-            <!-- 网络信息卡片 -->
             <div id="networkCard" class="cartoon-card card-network hidden">
-                <h2>网络状态</h2>
+                <h2>Network</h2>
                 <div id="networkInfo"></div>
             </div>
 
-            <!-- 应用信息卡片 -->
             <div id="appCard" class="cartoon-card card-app hidden">
-                <h2>应用信息</h2>
+                <h2>App</h2>
                 <div id="appInfoList"></div>
             </div>
 
-            <!-- 操作按钮 -->
-            <div id="buttonGroup" class="button-group hidden">
-                <button class="cartoon-button" onclick="window.App.refreshInfo()">
-                    🔄 刷新信息
-                </button>
-                <button class="cartoon-button" onclick="window.App.testHaptics()">
-                    📳 震动测试
-                </button>
-                <button class="cartoon-button" onclick="window.App.sendTestNotification()">
-                    🔔 通知测试
-                </button>
-                <button class="cartoon-button" onclick="window.App.copyAllInfo()">
-                    📋 复制信息
-                </button>
-                <button class="cartoon-button" onclick="window.App.toggleAutoRefresh()">
-                    ⏱️ ${this.state.preferences.autoRefresh ? '停止自动刷新' : '自动刷新'}
-                </button>
+            <div id="mediaCard" class="cartoon-card card-media hidden">
+                <h2>Camera & QR</h2>
+                <div id="mediaNote" class="media-note">Use the buttons below to take a photo or scan a QR code.</div>
+                <img id="photoPreview" class="photo-preview hidden" alt="Photo preview">
+                <div id="scanResultBox" class="scan-result hidden"></div>
             </div>
 
-            <!-- 刷新按钮 -->
-            <button id="refreshBtn" class="refresh-btn" onclick="window.App.refreshInfo()" title="刷新">
-                🔄
-            </button>
+            <div id="buttonGroup" class="button-group hidden">
+                <button class="cartoon-button" onclick="window.App.refreshInfo()">Refresh Info</button>
+                <button class="cartoon-button" onclick="window.App.testHaptics()">Test Haptics</button>
+                <button class="cartoon-button" onclick="window.App.sendTestNotification()">Test Notification</button>
+                <button class="cartoon-button" onclick="window.App.copyAllInfo()">Copy All Info</button>
+                <button class="cartoon-button" onclick="window.App.takePhoto()">Take Photo</button>
+                <button class="cartoon-button" onclick="window.App.scanQRCode()">Scan QR</button>
+                <button id="autoRefreshButton" class="cartoon-button" onclick="window.App.toggleAutoRefresh()"></button>
+            </div>
 
-            <!-- Toast 通知 -->
+            <button id="refreshBtn" class="refresh-btn" onclick="window.App.refreshInfo()" title="Refresh">↻</button>
             <div id="toast" class="toast"></div>
         `;
     },
 
-    /**
-     * 加载设备信息
-     */
     async loadDeviceInfo() {
         try {
             this.state.deviceInfo = await DeviceInfo.getAllInfo();
             this.updateUI();
         } catch (error) {
-            console.error('加载设备信息失败:', error);
-            this.showError('加载设备信息失败');
+            console.error('Failed to load device info:', error);
+            this.showError('Failed to load device info.');
         }
     },
 
-    /**
-     * 更新界面
-     */
     updateUI() {
         const info = this.state.deviceInfo;
-        if (!info) return;
+        if (!info) {
+            return;
+        }
 
-        // 隐藏加载动画
-        document.getElementById('loading').classList.add('hidden');
+        const loading = document.getElementById('loading');
+        if (loading) {
+            loading.classList.add('hidden');
+        }
 
-        // 显示卡片
-        document.getElementById('deviceCard').classList.remove('hidden');
-        document.getElementById('buttonGroup').classList.remove('hidden');
+        document.getElementById('deviceCard')?.classList.remove('hidden');
+        document.getElementById('buttonGroup')?.classList.remove('hidden');
+        document.getElementById('mediaCard')?.classList.remove('hidden');
 
-        // 渲染设备信息
         this.renderDeviceInfo(info);
 
-        // 渲染电池信息
         if (this.state.preferences.showBattery) {
             this.renderBatteryInfo(info);
-            document.getElementById('batteryCard').classList.remove('hidden');
+            document.getElementById('batteryCard')?.classList.remove('hidden');
         }
 
-        // 渲染网络信息
         if (this.state.preferences.showNetwork) {
             this.renderNetworkInfo(info);
-            document.getElementById('networkCard').classList.remove('hidden');
+            document.getElementById('networkCard')?.classList.remove('hidden');
         }
 
-        // 渲染应用信息
         this.renderAppInfo(info);
-        document.getElementById('appCard').classList.remove('hidden');
+        document.getElementById('appCard')?.classList.remove('hidden');
+
+        this.renderMediaPanel();
+        this.updateAutoRefreshButtonLabel();
     },
 
-    /**
-     * 渲染设备信息
-     */
     renderDeviceInfo(info) {
         const list = document.getElementById('deviceInfoList');
-        const items = DeviceInfo.formatInfoForDisplay(info);
+        if (!list) {
+            return;
+        }
 
-        list.innerHTML = items.map(item => `
-            <div class="info-item">
-                <span class="info-label">
-                    <span class="icon">${item.icon}</span>
-                    ${item.label}
-                </span>
-                <span class="info-value">${item.value}</span>
-            </div>
-        `).join('');
+        const items = [
+            { label: 'Model', value: info.model, icon: '📱' },
+            { label: 'Operating System', value: `${info.operatingSystem} ${info.osVersion}`, icon: '💻' },
+            { label: 'Manufacturer', value: info.manufacturer, icon: '🏭' },
+            { label: 'Platform', value: info.platform, icon: '⚙️' },
+            { label: 'Virtual Device', value: info.isVirtual ? 'Yes' : 'No', icon: '🖥️' }
+        ];
+        list.innerHTML = items
+            .map(
+                item => `
+                    <div class="info-item">
+                        <span class="info-label">
+                            <span class="icon">${item.icon}</span>
+                            ${item.label}
+                        </span>
+                        <span class="info-value">${this.escapeHtml(String(item.value))}</span>
+                    </div>
+                `,
+            )
+            .join('');
     },
 
-    /**
-     * 渲染电池信息
-     */
     renderBatteryInfo(info) {
         const container = document.getElementById('batteryInfo');
-        const battery = DeviceInfo.formatBatteryInfo(info);
+        if (!container) {
+            return;
+        }
+
+        const level = Math.round((info.battery?.level || 0) * 100);
+        const charging = Boolean(info.battery?.charging);
+        const levelClass = level > 50 ? 'high' : level > 20 ? 'medium' : 'low';
+        const statusText = `${level}% ${charging ? 'Charging' : 'Not Charging'}`;
 
         container.innerHTML = `
             <div class="info-item">
                 <span class="info-label">
                     <span class="icon">🔋</span>
-                    电池电量
+                    Battery Level
                 </span>
-                <span class="battery-level ${battery.levelClass}">
-                    ${battery.text}
+                <span class="battery-level ${levelClass}">
+                    ${this.escapeHtml(statusText)}
                 </span>
             </div>
             <div class="info-item">
                 <span class="info-label">
                     <span class="icon">⚡</span>
-                    充电状态
+                    Charging
                 </span>
-                <span class="info-value">${battery.charging ? '🔌 充电中' : '🔋 未充电'}</span>
+                <span class="info-value">${charging ? 'Yes' : 'No'}</span>
             </div>
         `;
     },
 
-    /**
-     * 渲染网络信息
-     */
     renderNetworkInfo(info) {
         const container = document.getElementById('networkInfo');
-        const network = DeviceInfo.formatNetworkInfo(info);
+        if (!container) {
+            return;
+        }
 
+        const connected = Boolean(info.network?.connected);
+        const networkText = info.network?.typeText || info.network?.connectionType || 'Unknown';
+        const statusClass = connected ? 'connected' : 'disconnected';
         container.innerHTML = `
             <div class="info-item">
                 <span class="info-label">
-                    <span class="icon">📡</span>
-                    连接状态
+                    <span class="icon">📶</span>
+                    Status
                 </span>
-                <span class="network-status ${network.statusClass}">
-                    ${network.connected ? '✅ 已连接' : '❌ 未连接'}
+                <span class="network-status ${statusClass}">
+                    ${connected ? 'Connected' : 'Disconnected'}
                 </span>
             </div>
             <div class="info-item">
                 <span class="info-label">
                     <span class="icon">🌐</span>
-                    网络类型
+                    Type
                 </span>
-                <span class="info-value">${network.text}</span>
+                <span class="info-value">${this.escapeHtml(networkText)}</span>
             </div>
         `;
     },
 
-    /**
-     * 渲染应用信息
-     */
     renderAppInfo(info) {
         const list = document.getElementById('appInfoList');
+        if (!list) {
+            return;
+        }
 
         list.innerHTML = `
             <div class="info-item">
                 <span class="info-label">
-                    <span class="icon">📦</span>
-                    应用版本
+                    <span class="icon">⚙️</span>
+                    Version
                 </span>
-                <span class="info-value">v${info.appVersion}</span>
+                <span class="info-value">v${this.escapeHtml(info.appVersion)}</span>
             </div>
             <div class="info-item">
                 <span class="info-label">
-                    <span class="icon">⏱️</span>
-                    运行时间
+                    <span class="icon">⏱</span>
+                    Uptime
                 </span>
-                <span class="info-value uptime" id="uptimeDisplay">${info.uptime}</span>
+                <span class="info-value uptime" id="uptimeDisplay">${this.escapeHtml(info.uptime)}</span>
             </div>
         `;
     },
 
-    /**
-     * 设置网络监听器
-     */
+    renderMediaPanel() {
+        const note = document.getElementById('mediaNote');
+        const preview = document.getElementById('photoPreview');
+        const scanResultBox = document.getElementById('scanResultBox');
+
+        if (preview) {
+            if (this.state.latestPhoto) {
+                preview.src = this.state.latestPhoto;
+                preview.classList.remove('hidden');
+            } else {
+                preview.classList.add('hidden');
+                preview.removeAttribute('src');
+            }
+        }
+
+        if (scanResultBox) {
+            if (this.state.latestScan) {
+                const scanValue = this.escapeHtml(this.state.latestScan.value || '');
+                const scanFormat = this.escapeHtml(this.state.latestScan.format || 'QR_CODE');
+                const scanType = this.escapeHtml(this.state.latestScan.valueType || 'UNKNOWN');
+
+                scanResultBox.innerHTML = `
+                    <div class="info-item">
+                        <span class="info-label"><span class="icon">🔎</span>Result</span>
+                        <span class="info-value scan-value">${scanValue}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label"><span class="icon">🏷</span>Format</span>
+                        <span class="info-value">${scanFormat}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label"><span class="icon">🧩</span>Type</span>
+                        <span class="info-value">${scanType}</span>
+                    </div>
+                    <div class="media-actions">
+                        <button class="copy-btn" onclick="window.App.copyScanResult()">Copy QR Result</button>
+                    </div>
+                `;
+                scanResultBox.classList.remove('hidden');
+            } else {
+                scanResultBox.innerHTML = '';
+                scanResultBox.classList.add('hidden');
+            }
+        }
+
+        if (note) {
+            if (this.state.latestScan) {
+                note.textContent = 'QR code scanned successfully.';
+            } else if (this.state.latestPhoto) {
+                note.textContent = 'Photo captured successfully.';
+            } else {
+                note.textContent = 'Use the buttons below to take a photo or scan a QR code.';
+            }
+        }
+    },
+
+    updateAutoRefreshButtonLabel() {
+        const button = document.getElementById('autoRefreshButton');
+        if (!button) {
+            return;
+        }
+
+        button.textContent = this.state.preferences.autoRefresh
+            ? 'Stop Auto Refresh'
+            : 'Start Auto Refresh';
+    },
+
     async setupNetworkListener() {
-        await DeviceInfo.addNetworkListener((networkStatus) => {
-            if (this.state.deviceInfo) {
-                this.state.deviceInfo.network = networkStatus;
-                if (!document.getElementById('networkCard').classList.contains('hidden')) {
-                    this.renderNetworkInfo(this.state.deviceInfo);
-                }
+        await DeviceInfo.addNetworkListener(networkStatus => {
+            if (!this.state.deviceInfo) {
+                return;
+            }
+            this.state.deviceInfo.network = networkStatus;
+            if (!document.getElementById('networkCard')?.classList.contains('hidden')) {
+                this.renderNetworkInfo(this.state.deviceInfo);
             }
         });
     },
 
-    /**
-     * 刷新信息
-     */
     async refreshInfo() {
         await DeviceInfo.hapticFeedback('light');
         await this.loadDeviceInfo();
-        this.showToast('✅ 信息已刷新');
+        this.showToast('Info refreshed.');
     },
 
-    /**
-     * 测试震动
-     */
     async testHaptics() {
         await DeviceInfo.hapticFeedback('heavy');
-        this.showToast('📳 震动测试完成');
+        this.showToast('Haptics test done.');
     },
 
-    /**
-     * 发送测试通知
-     */
     async sendTestNotification() {
-        await DeviceInfo.sendNotification('设备信息面板', '通知功能正常工作！');
+        await DeviceInfo.sendNotification('Device Info Panel', 'This is a local notification test.');
         await DeviceInfo.hapticFeedback('medium');
-        this.showToast('🔔 通知已发送');
+        this.showToast('Notification sent.');
     },
 
-    /**
-     * 复制所有信息
-     */
     async copyAllInfo() {
         const info = this.state.deviceInfo;
-        if (!info) return;
+        if (!info) {
+            return;
+        }
 
-        const text = `
-设备信息面板
-==================
-设备型号: ${info.model}
-操作系统: ${info.operatingSystem} ${info.osVersion}
-制造商: ${info.manufacturer}
-平台: ${info.platform}
-虚拟设备: ${info.isVirtual ? '是' : '否'}
-
-电池状态
-==================
-电量: ${Math.round((info.battery?.level || 1) * 100)}%
-充电状态: ${info.battery?.charging ? '充电中' : '未充电'}
-
-网络状态
-==================
-连接状态: ${info.network?.connected ? '已连接' : '未连接'}
-网络类型: ${info.network?.typeText || '未知'}
-
-应用信息
-==================
-版本: v${info.appVersion}
-运行时间: ${info.uptime}
-        `.trim();
+        const text = [
+            'Device Info',
+            '==========',
+            `Model: ${info.model}`,
+            `OS: ${info.operatingSystem} ${info.osVersion}`,
+            `Manufacturer: ${info.manufacturer}`,
+            `Platform: ${info.platform}`,
+            `Virtual: ${info.isVirtual ? 'Yes' : 'No'}`,
+            '',
+            'Battery',
+            '=======',
+            `Level: ${Math.round((info.battery?.level || 1) * 100)}%`,
+            `Charging: ${info.battery?.charging ? 'Yes' : 'No'}`,
+            '',
+            'Network',
+            '=======',
+            `Connected: ${info.network?.connected ? 'Yes' : 'No'}`,
+            `Type: ${info.network?.typeText || 'Unknown'}`,
+            '',
+            'App',
+            '===',
+            `Version: v${info.appVersion}`,
+            `Uptime: ${info.uptime}`
+        ].join('\n');
 
         const success = await DeviceInfo.copyToClipboard(text);
         await DeviceInfo.hapticFeedback('light');
-
-        if (success) {
-            this.showToast('✅ 已复制到剪贴板');
-        } else {
-            this.showToast('❌ 复制失败');
-        }
+        this.showToast(success ? 'Copied to clipboard.' : 'Copy failed.');
     },
 
-    /**
-     * 切换自动刷新
-     */
+    async takePhoto() {
+        const photo = await DeviceInfo.takePhoto();
+        if (!photo) {
+            this.showToast('Photo was not captured.');
+            return;
+        }
+
+        this.state.latestPhoto = photo;
+        this.renderMediaPanel();
+        await DeviceInfo.hapticFeedback('light');
+        this.showToast('Photo captured.');
+    },
+
+    async scanQRCode() {
+        const scanResult = await DeviceInfo.scanQRCode();
+        if (!scanResult || !scanResult.value) {
+            this.state.latestScan = null;
+            this.renderMediaPanel();
+            this.showToast('No QR code detected.');
+            return;
+        }
+
+        this.state.latestScan = scanResult;
+        this.renderMediaPanel();
+        await DeviceInfo.hapticFeedback('medium');
+        this.showToast('QR code scanned.');
+    },
+
+    async copyScanResult() {
+        const value = this.state.latestScan?.value;
+        if (!value) {
+            this.showToast('No scan result to copy.');
+            return;
+        }
+
+        const copied = await DeviceInfo.copyToClipboard(value);
+        this.showToast(copied ? 'QR result copied.' : 'Copy failed.');
+    },
+
     toggleAutoRefresh() {
         this.state.preferences.autoRefresh = !this.state.preferences.autoRefresh;
         this.savePreferences();
 
         if (this.state.preferences.autoRefresh) {
             this.startAutoRefresh();
-            this.showToast('⏱️ 已开启自动刷新');
+            this.showToast('Auto refresh enabled.');
         } else {
             this.stopAutoRefresh();
-            this.showToast('⏹️ 已停止自动刷新');
+            this.showToast('Auto refresh disabled.');
         }
 
-        // 更新按钮文本
-        const button = document.querySelector('#buttonGroup button:last-child');
-        if (button) {
-            button.textContent = `⏱️ ${this.state.preferences.autoRefresh ? '停止自动刷新' : '自动刷新'}`;
-        }
+        this.updateAutoRefreshButtonLabel();
     },
 
-    /**
-     * 开始自动刷新
-     */
     startAutoRefresh() {
         if (this.state.refreshInterval) {
             clearInterval(this.state.refreshInterval);
@@ -422,9 +479,6 @@ const App = {
         }, this.state.preferences.refreshInterval);
     },
 
-    /**
-     * 停止自动刷新
-     */
     stopAutoRefresh() {
         if (this.state.refreshInterval) {
             clearInterval(this.state.refreshInterval);
@@ -432,23 +486,21 @@ const App = {
         }
     },
 
-    /**
-     * 更新运行时间显示
-     */
     updateUptime() {
         const uptimeDisplay = document.getElementById('uptimeDisplay');
-        if (uptimeDisplay && this.state.deviceInfo) {
-            this.state.deviceInfo.uptime = DeviceInfo.getUptime();
-            uptimeDisplay.textContent = this.state.deviceInfo.uptime;
+        if (!uptimeDisplay || !this.state.deviceInfo) {
+            return;
         }
+
+        this.state.deviceInfo.uptime = DeviceInfo.getUptime();
+        uptimeDisplay.textContent = this.state.deviceInfo.uptime;
     },
 
-    /**
-     * 显示 Toast 通知
-     */
     showToast(message, duration = 2000) {
         const toast = document.getElementById('toast');
-        if (!toast) return;
+        if (!toast) {
+            return;
+        }
 
         toast.textContent = message;
         toast.classList.add('show');
@@ -458,40 +510,42 @@ const App = {
         }, duration);
     },
 
-    /**
-     * 显示错误信息
-     */
     showError(message) {
         const loading = document.getElementById('loading');
-        if (loading) {
-            loading.innerHTML = `
-                <p style="color: #F44336; font-size: 18px;">❌ ${message}</p>
-                <button class="cartoon-button" style="margin-top: 16px;" onclick="window.App.refreshInfo()">
-                    🔄 重试
-                </button>
-            `;
+        if (!loading) {
+            return;
         }
+
+        loading.innerHTML = `
+            <p style="color: #F44336; font-size: 18px;">${this.escapeHtml(message)}</p>
+            <button class="cartoon-button" style="margin-top: 16px;" onclick="window.App.refreshInfo()">
+                Retry
+            </button>
+        `;
     },
 
-    /**
-     * 销毁应用
-     */
+    escapeHtml(value) {
+        return String(value)
+            .replaceAll('&', '&amp;')
+            .replaceAll('<', '&lt;')
+            .replaceAll('>', '&gt;')
+            .replaceAll('"', '&quot;')
+            .replaceAll("'", '&#39;');
+    },
+
     destroy() {
         this.stopAutoRefresh();
         DeviceInfo.removeNetworkListener();
-        console.log('👋 应用已销毁');
+        console.log('App destroyed.');
     }
 };
 
-// 启动应用
 document.addEventListener('DOMContentLoaded', () => {
     App.init();
 
-    // 每秒更新运行时间
     setInterval(() => {
         App.updateUptime();
     }, 1000);
 });
 
-// 导出应用实例到 window（用于 HTML 中的 onclick 事件）
 window.App = App;

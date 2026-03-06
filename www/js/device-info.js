@@ -19,7 +19,9 @@ const DeviceInfo = {
                 Network: window.Capacitor.Plugins.Network,
                 Haptics: window.Capacitor.Plugins.Haptics,
                 LocalNotifications: window.Capacitor.Plugins.LocalNotifications,
-                Clipboard: window.Capacitor.Plugins.Clipboard
+                Clipboard: window.Capacitor.Plugins.Clipboard,
+                Camera: window.Capacitor.Plugins.Camera,
+                BarcodeScanner: window.Capacitor.Plugins.BarcodeScanner
             };
         }
         return null;
@@ -286,6 +288,84 @@ const DeviceInfo = {
     /**
      * 监听网络状态变化
      */
+    async takePhoto() {
+        const plugins = this.getPlugins();
+        const camera = plugins && plugins.Camera;
+        if (!camera) {
+            console.warn('Camera plugin is not available');
+            return null;
+        }
+
+        try {
+            if (typeof camera.requestPermissions === 'function') {
+                const permissionStatus = await camera.requestPermissions({
+                    permissions: ['camera']
+                });
+                if (permissionStatus && permissionStatus.camera === 'denied') {
+                    return null;
+                }
+            }
+
+            const photo = await camera.getPhoto({
+                quality: 85,
+                allowEditing: false,
+                resultType: 'dataUrl',
+                source: 'CAMERA',
+                correctOrientation: true
+            });
+
+            return photo?.dataUrl || photo?.webPath || null;
+        } catch (error) {
+            console.error('takePhoto failed:', error);
+            return null;
+        }
+    },
+
+    async scanQRCode() {
+        const plugins = this.getPlugins();
+        const scanner = plugins && plugins.BarcodeScanner;
+        if (!scanner) {
+            console.warn('BarcodeScanner plugin is not available');
+            return null;
+        }
+
+        try {
+            if (typeof scanner.isSupported === 'function') {
+                const supportStatus = await scanner.isSupported();
+                if (!supportStatus?.supported) {
+                    return null;
+                }
+            }
+
+            if (typeof scanner.requestPermissions === 'function') {
+                const permissionStatus = await scanner.requestPermissions();
+                const cameraPermission = permissionStatus && permissionStatus.camera;
+                if (cameraPermission !== 'granted' && cameraPermission !== 'limited') {
+                    return null;
+                }
+            }
+
+            const scanResult = await scanner.scan({
+                formats: ['QR_CODE']
+            });
+
+            const firstBarcode = Array.isArray(scanResult?.barcodes) ? scanResult.barcodes[0] : null;
+            if (!firstBarcode) {
+                return null;
+            }
+
+            return {
+                value: firstBarcode.displayValue || firstBarcode.rawValue || '',
+                rawValue: firstBarcode.rawValue || '',
+                format: firstBarcode.format || 'QR_CODE',
+                valueType: firstBarcode.valueType || 'UNKNOWN'
+            };
+        } catch (error) {
+            console.error('scanQRCode failed:', error);
+            return null;
+        }
+    },
+
     async addNetworkListener(callback) {
         const plugins = this.getPlugins();
         if (!plugins || !plugins.Network) {
