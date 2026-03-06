@@ -200,23 +200,38 @@ const DeviceInfo = {
      */
     async hapticFeedback(style = 'medium') {
         const plugins = this.getPlugins();
-        if (!plugins || !plugins.Haptics) {
-            console.warn('震动反馈不可用');
-            return;
+        const haptics = plugins && plugins.Haptics;
+
+        if (!haptics) {
+            console.warn('Haptics plugin is not available');
+            return false;
         }
 
         try {
-            const impactStyle = {
-                'light': plugins.Haptics.ImpactStyle.Light,
-                'medium': plugins.Haptics.ImpactStyle.Medium,
-                'heavy': plugins.Haptics.ImpactStyle.Heavy
+            // Use literal values to avoid relying on runtime enum exposure.
+            const impactStyleMap = {
+                'light': 'LIGHT',
+                'medium': 'MEDIUM',
+                'heavy': 'HEAVY'
             };
+            const normalizedStyle = String(style || 'medium').toLowerCase();
+            const impactStyle = impactStyleMap[normalizedStyle] || impactStyleMap.medium;
 
-            await plugins.Haptics.impact({
-                style: impactStyle[style] || plugins.Haptics.ImpactStyle.Medium
-            });
+            if (typeof haptics.impact === 'function') {
+                await haptics.impact({ style: impactStyle });
+                return true;
+            }
+
+            if (typeof haptics.vibrate === 'function') {
+                await haptics.vibrate();
+                return true;
+            }
+
+            console.warn('Haptics plugin does not expose impact() or vibrate()');
+            return false;
         } catch (error) {
-            console.warn('震动反馈不可用:', error);
+            console.warn('Haptics feedback failed:', error);
+            return false;
         }
     },
 
