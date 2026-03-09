@@ -429,35 +429,29 @@ body {
     gap: 6px;
 }
 
-.reminder-time-inline-two {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-items: end;
+.reminder-picker-input {
+    cursor: pointer;
 }
 
-.reminder-time-inline-three {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    align-items: end;
+.flatpickr-calendar {
+    border: 3px solid var(--line);
+    border-radius: 12px;
+    box-shadow: 3px 3px 0 rgba(90, 72, 57, 0.9);
+    font-family: 'Comic Sans MS', 'Chalkboard SE', 'Trebuchet MS', sans-serif;
 }
 
-.reminder-time-inline-four {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    align-items: end;
+.flatpickr-day.selected,
+.flatpickr-day.startRange,
+.flatpickr-day.endRange,
+.flatpickr-day.selected.inRange,
+.flatpickr-day.startRange.inRange,
+.flatpickr-day.endRange.inRange {
+    background: #76b2c8;
+    border-color: #76b2c8;
 }
 
-.reminder-time-inline-five {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    align-items: end;
-}
-
-.reminder-subfield {
-    display: grid;
-    gap: 4px;
-}
-
-.reminder-subfield span {
-    font-size: 12px;
+.flatpickr-time .numInputWrapper input {
     font-weight: 700;
-    color: #5a4f43;
 }
 
 .notes-section-head {
@@ -806,13 +800,6 @@ body {
 
     .action-grid,
     .action-grid.compact {
-        grid-template-columns: 1fr;
-    }
-
-    .reminder-time-inline-two,
-    .reminder-time-inline-three,
-    .reminder-time-inline-four,
-    .reminder-time-inline-five {
         grid-template-columns: 1fr;
     }
 

@@ -50,72 +50,23 @@ const WEEKDAY_LABELS = [
 ];
 const WORKDAY_WEEKDAYS = [1, 2, 3, 4, 5];
 const REMINDER_TIME_FIELD_IDS = new Set([
-    'reminderAtYear',
-    'reminderAtMonthOnce',
-    'reminderAtDayOnce',
-    'reminderAtHour',
-    'reminderAtMinute',
-    'reminderAtTimeHour',
-    'reminderAtTimeMinute',
-    'reminderAtMonthlyDay',
-    'reminderAtMonthlyHour',
-    'reminderAtMonthlyMinute',
-    'reminderAtMonth',
-    'reminderAtYearDay',
-    'reminderAtYearlyHour',
-    'reminderAtYearlyMinute'
+    'reminderAtOncePicker',
+    'reminderAtTimePicker',
+    'reminderAtMonthlyPicker',
+    'reminderAtYearlyPicker'
 ]);
+const flatpickr = window.flatpickr;
 
 function pad2(value) {
     return String(value).padStart(2, '0');
 }
 
-function setSelectOptions(select, items, preferredValue = '') {
-    if (!select) {
-        return;
+function getTimeValueFromDate(date) {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+        return '';
     }
 
-    const current = preferredValue !== '' ? String(preferredValue) : String(select.value || '');
-    select.innerHTML = items
-        .map(item => `<option value="${String(item.value)}">${String(item.label)}</option>`)
-        .join('');
-
-    const hasCurrent = items.some(item => String(item.value) === current);
-    if (hasCurrent) {
-        select.value = current;
-    } else if (items.length > 0) {
-        select.value = String(items[0].value);
-    }
-}
-
-function buildRangeOptions(start, end, labelFormatter = value => String(value), valueFormatter = value => String(value)) {
-    const options = [];
-    for (let value = start; value <= end; value += 1) {
-        options.push({
-            value: valueFormatter(value),
-            label: labelFormatter(value)
-        });
-    }
-    return options;
-}
-
-function toIntInRange(value, min, max) {
-    const parsed = Number(value);
-    if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
-        return null;
-    }
-
-    return parsed;
-}
-
-function buildTimeValue(hourValue, minuteValue) {
-    const hour = toIntInRange(hourValue, 0, 23);
-    const minute = toIntInRange(minuteValue, 0, 59);
-    if (hour === null || minute === null) {
-        return null;
-    }
-
-    return `${pad2(hour)}:${pad2(minute)}`;
+    return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
 }
 
 function toLocalDateTimeString(year, month, day, timeValue) {
@@ -145,6 +96,12 @@ export class ToolboxApp {
 
         this.toastTimer = null;
         this.uptimeTimer = null;
+        this.reminderPickers = {
+            once: null,
+            time: null,
+            monthly: null,
+            yearly: null
+        };
 
         this.handleClick = this.handleClick.bind(this);
         this.handleSubmit = this.handleSubmit.bind(this);
@@ -285,55 +242,30 @@ export class ToolboxApp {
             return;
         }
 
-        const now = new Date();
+        this.initReminderPickers(reminderForm);
+
+        const minDate = new Date(Date.now() + 60 * 1000);
+        minDate.setSeconds(0, 0);
         const defaultDate = new Date(Date.now() + 5 * 60 * 1000);
         defaultDate.setSeconds(0, 0);
 
-        const yearOptions = buildRangeOptions(
-            now.getFullYear(),
-            now.getFullYear() + 5,
-            value => `${value}年`,
-            value => String(value)
-        );
-        const monthOptions = buildRangeOptions(
-            1,
-            12,
-            value => `${value}月`,
-            value => String(value)
-        );
-        const hourOptions = buildRangeOptions(
-            0,
-            23,
-            value => `${pad2(value)}时`,
-            value => String(value)
-        );
-        const minuteOptions = buildRangeOptions(
-            0,
-            59,
-            value => `${pad2(value)}分`,
-            value => String(value)
-        );
+        if (this.reminderPickers.once) {
+            this.reminderPickers.once.set('minDate', minDate);
+            const onceDate = this.getReminderPickerDate('once');
+            if (!onceDate || onceDate.getTime() <= minDate.getTime()) {
+                this.reminderPickers.once.setDate(defaultDate, false);
+            }
+        }
 
-        setSelectOptions($('#reminderAtYear', reminderForm), yearOptions, defaultDate.getFullYear());
-        setSelectOptions($('#reminderAtMonthOnce', reminderForm), monthOptions, defaultDate.getMonth() + 1);
-        setSelectOptions($('#reminderAtHour', reminderForm), hourOptions, defaultDate.getHours());
-        setSelectOptions($('#reminderAtMinute', reminderForm), minuteOptions, defaultDate.getMinutes());
-
-        setSelectOptions($('#reminderAtTimeHour', reminderForm), hourOptions, defaultDate.getHours());
-        setSelectOptions($('#reminderAtTimeMinute', reminderForm), minuteOptions, defaultDate.getMinutes());
-
-        setSelectOptions($('#reminderAtMonthlyHour', reminderForm), hourOptions, defaultDate.getHours());
-        setSelectOptions($('#reminderAtMonthlyMinute', reminderForm), minuteOptions, defaultDate.getMinutes());
-
-        setSelectOptions($('#reminderAtMonth', reminderForm), monthOptions, now.getMonth() + 1);
-        setSelectOptions($('#reminderAtYearlyHour', reminderForm), hourOptions, defaultDate.getHours());
-        setSelectOptions($('#reminderAtYearlyMinute', reminderForm), minuteOptions, defaultDate.getMinutes());
-
-        this.syncReminderDayOptions(reminderForm, {
-            onceDay: defaultDate.getDate(),
-            monthlyDay: now.getDate(),
-            yearlyDay: now.getDate()
-        });
+        if (!this.getReminderPickerDate('time')) {
+            this.reminderPickers.time?.setDate(defaultDate, false);
+        }
+        if (!this.getReminderPickerDate('monthly')) {
+            this.reminderPickers.monthly?.setDate(defaultDate, false);
+        }
+        if (!this.getReminderPickerDate('yearly')) {
+            this.reminderPickers.yearly?.setDate(defaultDate, false);
+        }
 
         const repeatTypeSelect = $('#reminderRepeatType', reminderForm);
         if (repeatTypeSelect && !repeatTypeSelect.value) {
@@ -341,6 +273,79 @@ export class ToolboxApp {
         }
 
         this.updateReminderRepeatControls();
+    }
+
+    initReminderPickers(reminderForm) {
+        if (!flatpickr) {
+            return;
+        }
+
+        const commonOptions = {
+            locale: 'zh',
+            time_24hr: true,
+            minuteIncrement: 1,
+            allowInput: false,
+            disableMobile: true
+        };
+
+        if (!this.reminderPickers.once) {
+            const onceInput = $('#reminderAtOncePicker', reminderForm);
+            if (onceInput) {
+                this.reminderPickers.once = flatpickr(onceInput, {
+                    ...commonOptions,
+                    enableTime: true,
+                    dateFormat: 'Y-m-d H:i',
+                    onChange: () => this.updateReminderRepeatControls()
+                });
+            }
+        }
+
+        if (!this.reminderPickers.time) {
+            const timeInput = $('#reminderAtTimePicker', reminderForm);
+            if (timeInput) {
+                this.reminderPickers.time = flatpickr(timeInput, {
+                    ...commonOptions,
+                    noCalendar: true,
+                    enableTime: true,
+                    dateFormat: 'H:i',
+                    onChange: () => this.updateReminderRepeatControls()
+                });
+            }
+        }
+
+        if (!this.reminderPickers.monthly) {
+            const monthlyInput = $('#reminderAtMonthlyPicker', reminderForm);
+            if (monthlyInput) {
+                this.reminderPickers.monthly = flatpickr(monthlyInput, {
+                    ...commonOptions,
+                    enableTime: true,
+                    dateFormat: 'm-d H:i',
+                    onChange: () => this.updateReminderRepeatControls()
+                });
+            }
+        }
+
+        if (!this.reminderPickers.yearly) {
+            const yearlyInput = $('#reminderAtYearlyPicker', reminderForm);
+            if (yearlyInput) {
+                this.reminderPickers.yearly = flatpickr(yearlyInput, {
+                    ...commonOptions,
+                    enableTime: true,
+                    dateFormat: 'm-d H:i',
+                    onChange: () => this.updateReminderRepeatControls()
+                });
+            }
+        }
+    }
+
+    getReminderPickerDate(type) {
+        const picker = this.reminderPickers?.[type];
+        const date = picker?.selectedDates?.[0];
+        if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+            return null;
+        }
+
+        return new Date(date.getTime());
     }
 
     getReminderTimeMode(repeatType) {
@@ -357,54 +362,6 @@ export class ToolboxApp {
         }
 
         return 'time';
-    }
-
-    syncReminderDayOptions(reminderForm, preferred = {}) {
-        const onceYear = toIntInRange($('#reminderAtYear', reminderForm)?.value, 2000, 9999) || new Date().getFullYear();
-        const onceMonth = toIntInRange($('#reminderAtMonthOnce', reminderForm)?.value, 1, 12) || 1;
-        const onceMaxDay = daysInMonth(onceYear, onceMonth);
-
-        const monthlyMaxDay = 31;
-        const yearlyMonth = toIntInRange($('#reminderAtMonth', reminderForm)?.value, 1, 12) || 1;
-        const yearlyMaxDay = yearlyMonth === 2 ? 29 : daysInMonth(2025, yearlyMonth);
-
-        const dayLabelFormatter = value => `${value}日`;
-        setSelectOptions(
-            $('#reminderAtDayOnce', reminderForm),
-            buildRangeOptions(1, onceMaxDay, dayLabelFormatter, value => String(value)),
-            preferred.onceDay ?? $('#reminderAtDayOnce', reminderForm)?.value
-        );
-        setSelectOptions(
-            $('#reminderAtMonthlyDay', reminderForm),
-            buildRangeOptions(1, monthlyMaxDay, dayLabelFormatter, value => String(value)),
-            preferred.monthlyDay ?? $('#reminderAtMonthlyDay', reminderForm)?.value
-        );
-        setSelectOptions(
-            $('#reminderAtYearDay', reminderForm),
-            buildRangeOptions(1, yearlyMaxDay, dayLabelFormatter, value => String(value)),
-            preferred.yearlyDay ?? $('#reminderAtYearDay', reminderForm)?.value
-        );
-    }
-
-    getOnceDateTimeFromForm(reminderForm) {
-        const year = toIntInRange($('#reminderAtYear', reminderForm)?.value, 2000, 9999);
-        const month = toIntInRange($('#reminderAtMonthOnce', reminderForm)?.value, 1, 12);
-        const day = toIntInRange($('#reminderAtDayOnce', reminderForm)?.value, 1, 31);
-        const timeValue = buildTimeValue(
-            $('#reminderAtHour', reminderForm)?.value,
-            $('#reminderAtMinute', reminderForm)?.value
-        );
-
-        if (year === null || month === null || day === null || !timeValue) {
-            return '';
-        }
-
-        const maxDay = daysInMonth(year, month);
-        if (day > maxDay) {
-            return '';
-        }
-
-        return toLocalDateTimeString(year, month, day, timeValue);
     }
 
     updateReminderTimeFieldState(reminderForm, repeatType) {
@@ -428,70 +385,49 @@ export class ToolboxApp {
             yearlyField.classList.toggle('hidden', mode !== 'yearly');
         }
 
-        const onceRequired = mode === 'once';
-        ['reminderAtYear', 'reminderAtMonthOnce', 'reminderAtDayOnce', 'reminderAtHour', 'reminderAtMinute']
-            .forEach(id => {
-                const element = $(`#${id}`, reminderForm);
-                if (element) {
-                    element.required = onceRequired;
-                }
-            });
+        const onceInput = $('#reminderAtOncePicker', reminderForm);
+        const timeInput = $('#reminderAtTimePicker', reminderForm);
+        const monthlyInput = $('#reminderAtMonthlyPicker', reminderForm);
+        const yearlyInput = $('#reminderAtYearlyPicker', reminderForm);
 
-        const timeRequired = mode === 'time';
-        ['reminderAtTimeHour', 'reminderAtTimeMinute']
-            .forEach(id => {
-                const element = $(`#${id}`, reminderForm);
-                if (element) {
-                    element.required = timeRequired;
-                }
-            });
-
-        const monthlyRequired = mode === 'monthly';
-        ['reminderAtMonthlyDay', 'reminderAtMonthlyHour', 'reminderAtMonthlyMinute']
-            .forEach(id => {
-                const element = $(`#${id}`, reminderForm);
-                if (element) {
-                    element.required = monthlyRequired;
-                }
-            });
-
-        const yearlyRequired = mode === 'yearly';
-        ['reminderAtMonth', 'reminderAtYearDay', 'reminderAtYearlyHour', 'reminderAtYearlyMinute']
-            .forEach(id => {
-                const element = $(`#${id}`, reminderForm);
-                if (element) {
-                    element.required = yearlyRequired;
-                }
-            });
+        if (onceInput) {
+            onceInput.required = mode === 'once';
+        }
+        if (timeInput) {
+            timeInput.required = mode === 'time';
+        }
+        if (monthlyInput) {
+            monthlyInput.required = mode === 'monthly';
+        }
+        if (yearlyInput) {
+            yearlyInput.required = mode === 'yearly';
+        }
     }
 
-    buildReminderDueAtLocal(formData, repeatType) {
+    buildReminderDueAtLocal(_formData, repeatType) {
         const now = new Date();
 
         if (repeatType === 'once') {
-            const year = toIntInRange(formData.get('reminderAtYear'), 2000, 9999);
-            const month = toIntInRange(formData.get('reminderAtMonthOnce'), 1, 12);
-            const day = toIntInRange(formData.get('reminderAtDayOnce'), 1, 31);
-            const timeValue = buildTimeValue(formData.get('reminderAtHour'), formData.get('reminderAtMinute'));
-            if (year === null || month === null || day === null || !timeValue) {
+            const onceDate = this.getReminderPickerDate('once');
+            if (!onceDate) {
                 throw new Error('\u8bf7\u9009\u62e9\u63d0\u9192\u65f6\u95f4');
             }
 
-            const maxDay = daysInMonth(year, month);
-            if (day > maxDay) {
-                throw new Error(`\u8be5\u6708\u4efd\u7684\u6709\u6548\u65e5\u671f\u4e3a 1-${maxDay}`);
-            }
-
-            const onceDateTime = toLocalDateTimeString(year, month, day, timeValue);
-            if (new Date(onceDateTime).getTime() <= now.getTime()) {
+            if (onceDate.getTime() <= now.getTime()) {
                 throw new Error('\u5355\u6b21\u63d0\u9192\u65f6\u95f4\u5fc5\u987b\u665a\u4e8e\u5f53\u524d\u65f6\u95f4');
             }
 
-            return onceDateTime;
+            return toLocalDateTimeString(
+                onceDate.getFullYear(),
+                onceDate.getMonth() + 1,
+                onceDate.getDate(),
+                getTimeValueFromDate(onceDate)
+            );
         }
 
         if (repeatType === 'daily' || repeatType === 'weekdays' || repeatType === 'weekly') {
-            const timeValue = buildTimeValue(formData.get('reminderAtTimeHour'), formData.get('reminderAtTimeMinute'));
+            const timeDate = this.getReminderPickerDate('time');
+            const timeValue = getTimeValueFromDate(timeDate);
             if (!timeValue) {
                 throw new Error('\u8bf7\u9009\u62e9\u6709\u6548\u7684\u63d0\u9192\u65f6\u95f4');
             }
@@ -505,31 +441,31 @@ export class ToolboxApp {
         }
 
         if (repeatType === 'monthly') {
-            const day = toIntInRange(formData.get('reminderAtMonthlyDay'), 1, 31);
-            const timeValue = buildTimeValue(formData.get('reminderAtMonthlyHour'), formData.get('reminderAtMonthlyMinute'));
-
-            if (day === null) {
-                throw new Error('\u6bcf\u6708\u65e5\u671f\u9700\u5728 1-31 \u4e4b\u95f4');
-            }
-
+            const monthlyDate = this.getReminderPickerDate('monthly');
+            const day = monthlyDate?.getDate?.();
+            const timeValue = getTimeValueFromDate(monthlyDate);
             if (!timeValue) {
                 throw new Error('\u8bf7\u9009\u62e9\u6709\u6548\u7684\u63d0\u9192\u65f6\u95f4');
+            }
+            if (!Number.isInteger(day) || day < 1 || day > 31) {
+                throw new Error('\u6bcf\u6708\u65e5\u671f\u9700\u5728 1-31 \u4e4b\u95f4');
             }
 
             return toLocalDateTimeString(now.getFullYear(), 1, day, timeValue);
         }
 
         if (repeatType === 'yearly') {
-            const month = toIntInRange(formData.get('reminderAtMonth'), 1, 12);
-            const day = toIntInRange(formData.get('reminderAtYearDay'), 1, 31);
-            const timeValue = buildTimeValue(formData.get('reminderAtYearlyHour'), formData.get('reminderAtYearlyMinute'));
+            const yearlyDate = this.getReminderPickerDate('yearly');
+            const month = yearlyDate ? yearlyDate.getMonth() + 1 : 0;
+            const day = yearlyDate?.getDate?.() || 0;
+            const timeValue = getTimeValueFromDate(yearlyDate);
 
-            if (month === null) {
+            if (!Number.isInteger(month) || month < 1 || month > 12) {
                 throw new Error('\u8bf7\u9009\u62e9\u6709\u6548\u7684\u6708\u4efd');
             }
 
             const maxDay = month === 2 ? 29 : daysInMonth(2025, month);
-            if (day === null || day > maxDay) {
+            if (!Number.isInteger(day) || day < 1 || day > maxDay) {
                 throw new Error(`\u8be5\u6708\u4efd\u7684\u6709\u6548\u65e5\u671f\u4e3a 1-${maxDay}`);
             }
 
@@ -559,8 +495,8 @@ export class ToolboxApp {
         const mode = this.getReminderTimeMode(repeatType);
 
         if (mode === 'once') {
-            const onceDateTime = this.getOnceDateTimeFromForm(reminderForm);
-            const formatted = formatChinaDateTime(onceDateTime);
+            const onceDate = this.getReminderPickerDate('once');
+            const formatted = onceDate ? formatChinaDateTime(onceDate) : '--';
             hint.textContent = formatted === '--'
                 ? '\u5f53\u524d\uff1a\u8bf7\u9009\u62e9\u63d0\u9192\u65f6\u95f4\uff08\u5317\u4eac\u65f6\u95f4\uff09'
                 : `\u5f53\u524d\uff1a${formatted}\uff08\u5317\u4eac\u65f6\u95f4\uff09`;
@@ -568,10 +504,7 @@ export class ToolboxApp {
         }
 
         if (mode === 'time') {
-            const timeValue = buildTimeValue(
-                $('#reminderAtTimeHour', reminderForm)?.value,
-                $('#reminderAtTimeMinute', reminderForm)?.value
-            );
+            const timeValue = getTimeValueFromDate(this.getReminderPickerDate('time'));
             hint.textContent = timeValue
                 ? `\u5f53\u524d\uff1a${timeValue}\uff08\u6bcf\u5929/\u6309\u661f\u671f\uff0c\u5317\u4eac\u65f6\u95f4\uff09`
                 : '\u5f53\u524d\uff1a\u8bf7\u9009\u62e9\u63d0\u9192\u65f6\u95f4\uff08\u5317\u4eac\u65f6\u95f4\uff09';
@@ -579,12 +512,10 @@ export class ToolboxApp {
         }
 
         if (mode === 'monthly') {
-            const day = toIntInRange($('#reminderAtMonthlyDay', reminderForm)?.value, 1, 31);
-            const timeValue = buildTimeValue(
-                $('#reminderAtMonthlyHour', reminderForm)?.value,
-                $('#reminderAtMonthlyMinute', reminderForm)?.value
-            );
-            if (day !== null && timeValue) {
+            const monthlyDate = this.getReminderPickerDate('monthly');
+            const day = monthlyDate?.getDate?.();
+            const timeValue = getTimeValueFromDate(monthlyDate);
+            if (Number.isInteger(day) && day >= 1 && day <= 31 && timeValue) {
                 hint.textContent = `\u5f53\u524d\uff1a\u6bcf\u6708 ${day}\u65e5 ${timeValue}\uff08\u5317\u4eac\u65f6\u95f4\uff09`;
             } else {
                 hint.textContent = '\u5f53\u524d\uff1a\u8bf7\u9009\u62e9\u6bcf\u6708\u65e5\u671f\u548c\u65f6\u95f4\uff08\u5317\u4eac\u65f6\u95f4\uff09';
@@ -592,14 +523,12 @@ export class ToolboxApp {
             return;
         }
 
-        const month = toIntInRange($('#reminderAtMonth', reminderForm)?.value, 1, 12);
-        const day = toIntInRange($('#reminderAtYearDay', reminderForm)?.value, 1, 31);
-        const timeValue = buildTimeValue(
-            $('#reminderAtYearlyHour', reminderForm)?.value,
-            $('#reminderAtYearlyMinute', reminderForm)?.value
-        );
-        const maxDay = month === null ? 31 : (month === 2 ? 29 : daysInMonth(2025, month));
-        if (month !== null && day !== null && day <= maxDay && timeValue) {
+        const yearlyDate = this.getReminderPickerDate('yearly');
+        const month = yearlyDate ? yearlyDate.getMonth() + 1 : 0;
+        const day = yearlyDate?.getDate?.() || 0;
+        const timeValue = getTimeValueFromDate(yearlyDate);
+        const maxDay = month >= 1 && month <= 12 ? (month === 2 ? 29 : daysInMonth(2025, month)) : 31;
+        if (month >= 1 && month <= 12 && day >= 1 && day <= maxDay && timeValue) {
             hint.textContent = `\u5f53\u524d\uff1a\u6bcf\u5e74 ${month}\u6708${day}\u65e5 ${timeValue}\uff08\u5317\u4eac\u65f6\u95f4\uff09`;
         } else {
             hint.textContent = '\u5f53\u524d\uff1a\u8bf7\u9009\u62e9\u6bcf\u5e74\u6708\u65e5\u548c\u65f6\u95f4\uff08\u5317\u4eac\u65f6\u95f4\uff09';
@@ -643,13 +572,12 @@ export class ToolboxApp {
 
         const repeatTypeSelect = $('#reminderRepeatType', reminderForm);
         const repeatType = String(repeatTypeSelect?.value || 'once').toLowerCase();
-        this.syncReminderDayOptions(reminderForm);
         this.updateReminderTimeFieldState(reminderForm, repeatType);
 
         const weekdayField = $('#reminderWeekdayField', reminderForm);
         const weekdayInputs = Array.from(reminderForm.querySelectorAll('input[name="repeatWeekdays"]'));
-        const onceInputDate = new Date(this.getOnceDateTimeFromForm(reminderForm));
-        const fallbackWeekday = Number.isNaN(onceInputDate.getTime()) ? new Date().getDay() : onceInputDate.getDay();
+        const onceInputDate = this.getReminderPickerDate('once');
+        const fallbackWeekday = onceInputDate ? onceInputDate.getDay() : new Date().getDay();
 
         if (repeatType === 'weekly') {
             if (weekdayField) {
@@ -1102,6 +1030,14 @@ export class ToolboxApp {
             this.root.removeEventListener('submit', this.handleSubmit);
             this.root.removeEventListener('change', this.handleChange);
         }
+
+        Object.keys(this.reminderPickers).forEach(key => {
+            const picker = this.reminderPickers[key];
+            if (picker && typeof picker.destroy === 'function') {
+                picker.destroy();
+            }
+            this.reminderPickers[key] = null;
+        });
 
         await removeNetworkStatusListener();
     }

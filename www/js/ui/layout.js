@@ -182,69 +182,46 @@ export function getToolboxShell() {
                             </label>
                             <label>
                                 \u63d0\u9192\u65f6\u95f4
-                                <div id="reminderAtOnceField" class="reminder-time-mode-field reminder-time-inline-five">
-                                    <div class="reminder-subfield">
-                                        <span>\u5e74</span>
-                                        <select id="reminderAtYear" name="reminderAtYear"></select>
-                                    </div>
-                                    <div class="reminder-subfield">
-                                        <span>\u6708</span>
-                                        <select id="reminderAtMonthOnce" name="reminderAtMonthOnce"></select>
-                                    </div>
-                                    <div class="reminder-subfield">
-                                        <span>\u65e5</span>
-                                        <select id="reminderAtDayOnce" name="reminderAtDayOnce"></select>
-                                    </div>
-                                    <div class="reminder-subfield">
-                                        <span>\u65f6</span>
-                                        <select id="reminderAtHour" name="reminderAtHour"></select>
-                                    </div>
-                                    <div class="reminder-subfield">
-                                        <span>\u5206</span>
-                                        <select id="reminderAtMinute" name="reminderAtMinute"></select>
-                                    </div>
+                                <div id="reminderAtOnceField" class="reminder-time-mode-field">
+                                    <input
+                                        id="reminderAtOncePicker"
+                                        class="reminder-picker-input"
+                                        type="text"
+                                        name="reminderAtOncePicker"
+                                        placeholder="\u9009\u62e9\u65e5\u671f\u548c\u65f6\u95f4"
+                                        readonly
+                                        required
+                                    >
                                 </div>
-                                <div id="reminderAtTimeField" class="reminder-time-mode-field reminder-time-inline-two hidden">
-                                    <div class="reminder-subfield">
-                                        <span>\u65f6</span>
-                                        <select id="reminderAtTimeHour" name="reminderAtTimeHour"></select>
-                                    </div>
-                                    <div class="reminder-subfield">
-                                        <span>\u5206</span>
-                                        <select id="reminderAtTimeMinute" name="reminderAtTimeMinute"></select>
-                                    </div>
+                                <div id="reminderAtTimeField" class="reminder-time-mode-field hidden">
+                                    <input
+                                        id="reminderAtTimePicker"
+                                        class="reminder-picker-input"
+                                        type="text"
+                                        name="reminderAtTimePicker"
+                                        placeholder="\u9009\u62e9\u65f6\u95f4"
+                                        readonly
+                                    >
                                 </div>
-                                <div id="reminderAtMonthlyField" class="reminder-time-mode-field reminder-time-inline-three hidden">
-                                    <div class="reminder-subfield">
-                                        <span>\u6bcf\u6708\u65e5\u671f</span>
-                                        <select id="reminderAtMonthlyDay" name="reminderAtMonthlyDay"></select>
-                                    </div>
-                                    <div class="reminder-subfield">
-                                        <span>\u65f6</span>
-                                        <select id="reminderAtMonthlyHour" name="reminderAtMonthlyHour"></select>
-                                    </div>
-                                    <div class="reminder-subfield">
-                                        <span>\u5206</span>
-                                        <select id="reminderAtMonthlyMinute" name="reminderAtMonthlyMinute"></select>
-                                    </div>
+                                <div id="reminderAtMonthlyField" class="reminder-time-mode-field hidden">
+                                    <input
+                                        id="reminderAtMonthlyPicker"
+                                        class="reminder-picker-input"
+                                        type="text"
+                                        name="reminderAtMonthlyPicker"
+                                        placeholder="\u9009\u62e9\u6bcf\u6708\u65e5\u671f\u548c\u65f6\u95f4"
+                                        readonly
+                                    >
                                 </div>
-                                <div id="reminderAtYearlyField" class="reminder-time-mode-field reminder-time-inline-four hidden">
-                                    <div class="reminder-subfield">
-                                        <span>\u6708\u4efd</span>
-                                        <select id="reminderAtMonth" name="reminderAtMonth"></select>
-                                    </div>
-                                    <div class="reminder-subfield">
-                                        <span>\u65e5\u671f</span>
-                                        <select id="reminderAtYearDay" name="reminderAtYearDay"></select>
-                                    </div>
-                                    <div class="reminder-subfield">
-                                        <span>\u65f6</span>
-                                        <select id="reminderAtYearlyHour" name="reminderAtYearlyHour"></select>
-                                    </div>
-                                    <div class="reminder-subfield">
-                                        <span>\u5206</span>
-                                        <select id="reminderAtYearlyMinute" name="reminderAtYearlyMinute"></select>
-                                    </div>
+                                <div id="reminderAtYearlyField" class="reminder-time-mode-field hidden">
+                                    <input
+                                        id="reminderAtYearlyPicker"
+                                        class="reminder-picker-input"
+                                        type="text"
+                                        name="reminderAtYearlyPicker"
+                                        placeholder="\u9009\u62e9\u6bcf\u5e74\u6708\u65e5\u548c\u65f6\u95f4"
+                                        readonly
+                                    >
                                 </div>
                             </label>
                             <p id="reminderTimeHint" class="reminder-time-hint">\u5f53\u524d\uff1a\u8bf7\u9009\u62e9\u63d0\u9192\u65f6\u95f4\uff08\u5317\u4eac\u65f6\u95f4\uff09</p>
