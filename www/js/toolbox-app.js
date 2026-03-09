@@ -50,52 +50,72 @@ const WEEKDAY_LABELS = [
 ];
 const WORKDAY_WEEKDAYS = [1, 2, 3, 4, 5];
 const REMINDER_TIME_FIELD_IDS = new Set([
-    'reminderAtDateTime',
-    'reminderAtTime',
-    'reminderAtDay',
-    'reminderAtMonthlyTime',
+    'reminderAtYear',
+    'reminderAtMonthOnce',
+    'reminderAtDayOnce',
+    'reminderAtHour',
+    'reminderAtMinute',
+    'reminderAtTimeHour',
+    'reminderAtTimeMinute',
+    'reminderAtMonthlyDay',
+    'reminderAtMonthlyHour',
+    'reminderAtMonthlyMinute',
     'reminderAtMonth',
     'reminderAtYearDay',
-    'reminderAtYearlyTime'
+    'reminderAtYearlyHour',
+    'reminderAtYearlyMinute'
 ]);
 
-function toDateTimeLocalValue(date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hour = String(date.getHours()).padStart(2, '0');
-    const minute = String(date.getMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day}T${hour}:${minute}`;
+function pad2(value) {
+    return String(value).padStart(2, '0');
 }
 
-function toTimeValue(date) {
-    const hour = String(date.getHours()).padStart(2, '0');
-    const minute = String(date.getMinutes()).padStart(2, '0');
-    return `${hour}:${minute}`;
+function setSelectOptions(select, items, preferredValue = '') {
+    if (!select) {
+        return;
+    }
+
+    const current = preferredValue !== '' ? String(preferredValue) : String(select.value || '');
+    select.innerHTML = items
+        .map(item => `<option value="${String(item.value)}">${String(item.label)}</option>`)
+        .join('');
+
+    const hasCurrent = items.some(item => String(item.value) === current);
+    if (hasCurrent) {
+        select.value = current;
+    } else if (items.length > 0) {
+        select.value = String(items[0].value);
+    }
 }
 
-function parseTimeParts(value) {
-    const text = String(value || '').trim();
-    if (!/^\d{1,2}:\d{2}$/.test(text)) {
+function buildRangeOptions(start, end, labelFormatter = value => String(value), valueFormatter = value => String(value)) {
+    const options = [];
+    for (let value = start; value <= end; value += 1) {
+        options.push({
+            value: valueFormatter(value),
+            label: labelFormatter(value)
+        });
+    }
+    return options;
+}
+
+function toIntInRange(value, min, max) {
+    const parsed = Number(value);
+    if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
         return null;
     }
 
-    const [hourText, minuteText] = text.split(':');
-    const hour = Number(hourText);
-    const minute = Number(minuteText);
-    if (!Number.isInteger(hour) || !Number.isInteger(minute)) {
+    return parsed;
+}
+
+function buildTimeValue(hourValue, minuteValue) {
+    const hour = toIntInRange(hourValue, 0, 23);
+    const minute = toIntInRange(minuteValue, 0, 59);
+    if (hour === null || minute === null) {
         return null;
     }
 
-    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
-        return null;
-    }
-
-    return {
-        hour,
-        minute,
-        value: `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
-    };
+    return `${pad2(hour)}:${pad2(minute)}`;
 }
 
 function toLocalDateTimeString(year, month, day, timeValue) {
@@ -268,48 +288,52 @@ export class ToolboxApp {
         const now = new Date();
         const defaultDate = new Date(Date.now() + 5 * 60 * 1000);
         defaultDate.setSeconds(0, 0);
-        const defaultTime = toTimeValue(defaultDate);
 
-        const reminderAtDateTimeInput = $('#reminderAtDateTime', reminderForm);
-        if (reminderAtDateTimeInput) {
-            const minDate = new Date(Date.now() + 60 * 1000);
-            minDate.setSeconds(0, 0);
-            reminderAtDateTimeInput.min = toDateTimeLocalValue(minDate);
+        const yearOptions = buildRangeOptions(
+            now.getFullYear(),
+            now.getFullYear() + 5,
+            value => `${value}年`,
+            value => String(value)
+        );
+        const monthOptions = buildRangeOptions(
+            1,
+            12,
+            value => `${value}月`,
+            value => String(value)
+        );
+        const hourOptions = buildRangeOptions(
+            0,
+            23,
+            value => `${pad2(value)}时`,
+            value => String(value)
+        );
+        const minuteOptions = buildRangeOptions(
+            0,
+            59,
+            value => `${pad2(value)}分`,
+            value => String(value)
+        );
 
-            if (!reminderAtDateTimeInput.value) {
-                reminderAtDateTimeInput.value = toDateTimeLocalValue(defaultDate);
-            }
-        }
+        setSelectOptions($('#reminderAtYear', reminderForm), yearOptions, defaultDate.getFullYear());
+        setSelectOptions($('#reminderAtMonthOnce', reminderForm), monthOptions, defaultDate.getMonth() + 1);
+        setSelectOptions($('#reminderAtHour', reminderForm), hourOptions, defaultDate.getHours());
+        setSelectOptions($('#reminderAtMinute', reminderForm), minuteOptions, defaultDate.getMinutes());
 
-        const reminderAtTimeInput = $('#reminderAtTime', reminderForm);
-        if (reminderAtTimeInput && !reminderAtTimeInput.value) {
-            reminderAtTimeInput.value = defaultTime;
-        }
+        setSelectOptions($('#reminderAtTimeHour', reminderForm), hourOptions, defaultDate.getHours());
+        setSelectOptions($('#reminderAtTimeMinute', reminderForm), minuteOptions, defaultDate.getMinutes());
 
-        const reminderAtDayInput = $('#reminderAtDay', reminderForm);
-        if (reminderAtDayInput && !reminderAtDayInput.value) {
-            reminderAtDayInput.value = String(now.getDate());
-        }
+        setSelectOptions($('#reminderAtMonthlyHour', reminderForm), hourOptions, defaultDate.getHours());
+        setSelectOptions($('#reminderAtMonthlyMinute', reminderForm), minuteOptions, defaultDate.getMinutes());
 
-        const reminderAtMonthlyTimeInput = $('#reminderAtMonthlyTime', reminderForm);
-        if (reminderAtMonthlyTimeInput && !reminderAtMonthlyTimeInput.value) {
-            reminderAtMonthlyTimeInput.value = defaultTime;
-        }
+        setSelectOptions($('#reminderAtMonth', reminderForm), monthOptions, now.getMonth() + 1);
+        setSelectOptions($('#reminderAtYearlyHour', reminderForm), hourOptions, defaultDate.getHours());
+        setSelectOptions($('#reminderAtYearlyMinute', reminderForm), minuteOptions, defaultDate.getMinutes());
 
-        const reminderAtMonthSelect = $('#reminderAtMonth', reminderForm);
-        if (reminderAtMonthSelect) {
-            reminderAtMonthSelect.value = String(now.getMonth() + 1);
-        }
-
-        const reminderAtYearDayInput = $('#reminderAtYearDay', reminderForm);
-        if (reminderAtYearDayInput && !reminderAtYearDayInput.value) {
-            reminderAtYearDayInput.value = String(now.getDate());
-        }
-
-        const reminderAtYearlyTimeInput = $('#reminderAtYearlyTime', reminderForm);
-        if (reminderAtYearlyTimeInput && !reminderAtYearlyTimeInput.value) {
-            reminderAtYearlyTimeInput.value = defaultTime;
-        }
+        this.syncReminderDayOptions(reminderForm, {
+            onceDay: defaultDate.getDate(),
+            monthlyDay: now.getDate(),
+            yearlyDay: now.getDate()
+        });
 
         const repeatTypeSelect = $('#reminderRepeatType', reminderForm);
         if (repeatTypeSelect && !repeatTypeSelect.value) {
@@ -335,6 +359,54 @@ export class ToolboxApp {
         return 'time';
     }
 
+    syncReminderDayOptions(reminderForm, preferred = {}) {
+        const onceYear = toIntInRange($('#reminderAtYear', reminderForm)?.value, 2000, 9999) || new Date().getFullYear();
+        const onceMonth = toIntInRange($('#reminderAtMonthOnce', reminderForm)?.value, 1, 12) || 1;
+        const onceMaxDay = daysInMonth(onceYear, onceMonth);
+
+        const monthlyMaxDay = 31;
+        const yearlyMonth = toIntInRange($('#reminderAtMonth', reminderForm)?.value, 1, 12) || 1;
+        const yearlyMaxDay = yearlyMonth === 2 ? 29 : daysInMonth(2025, yearlyMonth);
+
+        const dayLabelFormatter = value => `${value}日`;
+        setSelectOptions(
+            $('#reminderAtDayOnce', reminderForm),
+            buildRangeOptions(1, onceMaxDay, dayLabelFormatter, value => String(value)),
+            preferred.onceDay ?? $('#reminderAtDayOnce', reminderForm)?.value
+        );
+        setSelectOptions(
+            $('#reminderAtMonthlyDay', reminderForm),
+            buildRangeOptions(1, monthlyMaxDay, dayLabelFormatter, value => String(value)),
+            preferred.monthlyDay ?? $('#reminderAtMonthlyDay', reminderForm)?.value
+        );
+        setSelectOptions(
+            $('#reminderAtYearDay', reminderForm),
+            buildRangeOptions(1, yearlyMaxDay, dayLabelFormatter, value => String(value)),
+            preferred.yearlyDay ?? $('#reminderAtYearDay', reminderForm)?.value
+        );
+    }
+
+    getOnceDateTimeFromForm(reminderForm) {
+        const year = toIntInRange($('#reminderAtYear', reminderForm)?.value, 2000, 9999);
+        const month = toIntInRange($('#reminderAtMonthOnce', reminderForm)?.value, 1, 12);
+        const day = toIntInRange($('#reminderAtDayOnce', reminderForm)?.value, 1, 31);
+        const timeValue = buildTimeValue(
+            $('#reminderAtHour', reminderForm)?.value,
+            $('#reminderAtMinute', reminderForm)?.value
+        );
+
+        if (year === null || month === null || day === null || !timeValue) {
+            return '';
+        }
+
+        const maxDay = daysInMonth(year, month);
+        if (day > maxDay) {
+            return '';
+        }
+
+        return toLocalDateTimeString(year, month, day, timeValue);
+    }
+
     updateReminderTimeFieldState(reminderForm, repeatType) {
         const mode = this.getReminderTimeMode(repeatType);
 
@@ -356,61 +428,71 @@ export class ToolboxApp {
             yearlyField.classList.toggle('hidden', mode !== 'yearly');
         }
 
-        const reminderAtDateTimeInput = $('#reminderAtDateTime', reminderForm);
-        const reminderAtTimeInput = $('#reminderAtTime', reminderForm);
-        const reminderAtDayInput = $('#reminderAtDay', reminderForm);
-        const reminderAtMonthlyTimeInput = $('#reminderAtMonthlyTime', reminderForm);
-        const reminderAtMonthSelect = $('#reminderAtMonth', reminderForm);
-        const reminderAtYearDayInput = $('#reminderAtYearDay', reminderForm);
-        const reminderAtYearlyTimeInput = $('#reminderAtYearlyTime', reminderForm);
+        const onceRequired = mode === 'once';
+        ['reminderAtYear', 'reminderAtMonthOnce', 'reminderAtDayOnce', 'reminderAtHour', 'reminderAtMinute']
+            .forEach(id => {
+                const element = $(`#${id}`, reminderForm);
+                if (element) {
+                    element.required = onceRequired;
+                }
+            });
 
-        if (reminderAtDateTimeInput) {
-            reminderAtDateTimeInput.required = mode === 'once';
-        }
-        if (reminderAtTimeInput) {
-            reminderAtTimeInput.required = mode === 'time';
-        }
-        if (reminderAtDayInput) {
-            reminderAtDayInput.required = mode === 'monthly';
-        }
-        if (reminderAtMonthlyTimeInput) {
-            reminderAtMonthlyTimeInput.required = mode === 'monthly';
-        }
-        if (reminderAtMonthSelect) {
-            reminderAtMonthSelect.required = mode === 'yearly';
-        }
-        if (reminderAtYearDayInput) {
-            reminderAtYearDayInput.required = mode === 'yearly';
-        }
-        if (reminderAtYearlyTimeInput) {
-            reminderAtYearlyTimeInput.required = mode === 'yearly';
-        }
+        const timeRequired = mode === 'time';
+        ['reminderAtTimeHour', 'reminderAtTimeMinute']
+            .forEach(id => {
+                const element = $(`#${id}`, reminderForm);
+                if (element) {
+                    element.required = timeRequired;
+                }
+            });
 
-        if (reminderAtMonthSelect && reminderAtYearDayInput) {
-            const month = Number(reminderAtMonthSelect.value || '1');
-            const maxYearDay = month === 2 ? 29 : daysInMonth(2025, month);
-            reminderAtYearDayInput.max = String(maxYearDay);
-            if (Number(reminderAtYearDayInput.value || '0') > maxYearDay) {
-                reminderAtYearDayInput.value = String(maxYearDay);
-            }
-        }
+        const monthlyRequired = mode === 'monthly';
+        ['reminderAtMonthlyDay', 'reminderAtMonthlyHour', 'reminderAtMonthlyMinute']
+            .forEach(id => {
+                const element = $(`#${id}`, reminderForm);
+                if (element) {
+                    element.required = monthlyRequired;
+                }
+            });
+
+        const yearlyRequired = mode === 'yearly';
+        ['reminderAtMonth', 'reminderAtYearDay', 'reminderAtYearlyHour', 'reminderAtYearlyMinute']
+            .forEach(id => {
+                const element = $(`#${id}`, reminderForm);
+                if (element) {
+                    element.required = yearlyRequired;
+                }
+            });
     }
 
     buildReminderDueAtLocal(formData, repeatType) {
         const now = new Date();
 
         if (repeatType === 'once') {
-            const dateTimeValue = String(formData.get('reminderAtDateTime') || '').trim();
-            if (!dateTimeValue) {
+            const year = toIntInRange(formData.get('reminderAtYear'), 2000, 9999);
+            const month = toIntInRange(formData.get('reminderAtMonthOnce'), 1, 12);
+            const day = toIntInRange(formData.get('reminderAtDayOnce'), 1, 31);
+            const timeValue = buildTimeValue(formData.get('reminderAtHour'), formData.get('reminderAtMinute'));
+            if (year === null || month === null || day === null || !timeValue) {
                 throw new Error('\u8bf7\u9009\u62e9\u63d0\u9192\u65f6\u95f4');
             }
-            return dateTimeValue;
+
+            const maxDay = daysInMonth(year, month);
+            if (day > maxDay) {
+                throw new Error(`\u8be5\u6708\u4efd\u7684\u6709\u6548\u65e5\u671f\u4e3a 1-${maxDay}`);
+            }
+
+            const onceDateTime = toLocalDateTimeString(year, month, day, timeValue);
+            if (new Date(onceDateTime).getTime() <= now.getTime()) {
+                throw new Error('\u5355\u6b21\u63d0\u9192\u65f6\u95f4\u5fc5\u987b\u665a\u4e8e\u5f53\u524d\u65f6\u95f4');
+            }
+
+            return onceDateTime;
         }
 
         if (repeatType === 'daily' || repeatType === 'weekdays' || repeatType === 'weekly') {
-            const timeValue = String(formData.get('reminderAtTime') || '').trim();
-            const timeParts = parseTimeParts(timeValue);
-            if (!timeParts) {
+            const timeValue = buildTimeValue(formData.get('reminderAtTimeHour'), formData.get('reminderAtTimeMinute'));
+            if (!timeValue) {
                 throw new Error('\u8bf7\u9009\u62e9\u6709\u6548\u7684\u63d0\u9192\u65f6\u95f4');
             }
 
@@ -418,47 +500,45 @@ export class ToolboxApp {
                 now.getFullYear(),
                 now.getMonth() + 1,
                 now.getDate(),
-                timeParts.value
+                timeValue
             );
         }
 
         if (repeatType === 'monthly') {
-            const day = Number(formData.get('reminderAtDay'));
-            const timeValue = String(formData.get('reminderAtMonthlyTime') || '').trim();
-            const timeParts = parseTimeParts(timeValue);
+            const day = toIntInRange(formData.get('reminderAtMonthlyDay'), 1, 31);
+            const timeValue = buildTimeValue(formData.get('reminderAtMonthlyHour'), formData.get('reminderAtMonthlyMinute'));
 
-            if (!Number.isInteger(day) || day < 1 || day > 31) {
+            if (day === null) {
                 throw new Error('\u6bcf\u6708\u65e5\u671f\u9700\u5728 1-31 \u4e4b\u95f4');
             }
 
-            if (!timeParts) {
+            if (!timeValue) {
                 throw new Error('\u8bf7\u9009\u62e9\u6709\u6548\u7684\u63d0\u9192\u65f6\u95f4');
             }
 
-            return toLocalDateTimeString(now.getFullYear(), 1, day, timeParts.value);
+            return toLocalDateTimeString(now.getFullYear(), 1, day, timeValue);
         }
 
         if (repeatType === 'yearly') {
-            const month = Number(formData.get('reminderAtMonth'));
-            const day = Number(formData.get('reminderAtYearDay'));
-            const timeValue = String(formData.get('reminderAtYearlyTime') || '').trim();
-            const timeParts = parseTimeParts(timeValue);
+            const month = toIntInRange(formData.get('reminderAtMonth'), 1, 12);
+            const day = toIntInRange(formData.get('reminderAtYearDay'), 1, 31);
+            const timeValue = buildTimeValue(formData.get('reminderAtYearlyHour'), formData.get('reminderAtYearlyMinute'));
 
-            if (!Number.isInteger(month) || month < 1 || month > 12) {
+            if (month === null) {
                 throw new Error('\u8bf7\u9009\u62e9\u6709\u6548\u7684\u6708\u4efd');
             }
 
             const maxDay = month === 2 ? 29 : daysInMonth(2025, month);
-            if (!Number.isInteger(day) || day < 1 || day > maxDay) {
+            if (day === null || day > maxDay) {
                 throw new Error(`\u8be5\u6708\u4efd\u7684\u6709\u6548\u65e5\u671f\u4e3a 1-${maxDay}`);
             }
 
-            if (!timeParts) {
+            if (!timeValue) {
                 throw new Error('\u8bf7\u9009\u62e9\u6709\u6548\u7684\u63d0\u9192\u65f6\u95f4');
             }
 
             const referenceYear = month === 2 && day === 29 ? 2024 : now.getFullYear();
-            return toLocalDateTimeString(referenceYear, month, day, timeParts.value);
+            return toLocalDateTimeString(referenceYear, month, day, timeValue);
         }
 
         throw new Error('\u4e0d\u652f\u6301\u7684\u91cd\u590d\u89c4\u5219');
@@ -479,8 +559,8 @@ export class ToolboxApp {
         const mode = this.getReminderTimeMode(repeatType);
 
         if (mode === 'once') {
-            const reminderAtDateTimeInput = $('#reminderAtDateTime', reminderForm);
-            const formatted = formatChinaDateTime(reminderAtDateTimeInput?.value || '');
+            const onceDateTime = this.getOnceDateTimeFromForm(reminderForm);
+            const formatted = formatChinaDateTime(onceDateTime);
             hint.textContent = formatted === '--'
                 ? '\u5f53\u524d\uff1a\u8bf7\u9009\u62e9\u63d0\u9192\u65f6\u95f4\uff08\u5317\u4eac\u65f6\u95f4\uff09'
                 : `\u5f53\u524d\uff1a${formatted}\uff08\u5317\u4eac\u65f6\u95f4\uff09`;
@@ -488,30 +568,39 @@ export class ToolboxApp {
         }
 
         if (mode === 'time') {
-            const timeParts = parseTimeParts($('#reminderAtTime', reminderForm)?.value || '');
-            hint.textContent = timeParts
-                ? `\u5f53\u524d\uff1a${timeParts.value}\uff08\u6bcf\u5929/\u6309\u661f\u671f\uff0c\u5317\u4eac\u65f6\u95f4\uff09`
+            const timeValue = buildTimeValue(
+                $('#reminderAtTimeHour', reminderForm)?.value,
+                $('#reminderAtTimeMinute', reminderForm)?.value
+            );
+            hint.textContent = timeValue
+                ? `\u5f53\u524d\uff1a${timeValue}\uff08\u6bcf\u5929/\u6309\u661f\u671f\uff0c\u5317\u4eac\u65f6\u95f4\uff09`
                 : '\u5f53\u524d\uff1a\u8bf7\u9009\u62e9\u63d0\u9192\u65f6\u95f4\uff08\u5317\u4eac\u65f6\u95f4\uff09';
             return;
         }
 
         if (mode === 'monthly') {
-            const day = Number($('#reminderAtDay', reminderForm)?.value || '0');
-            const timeParts = parseTimeParts($('#reminderAtMonthlyTime', reminderForm)?.value || '');
-            if (Number.isInteger(day) && day >= 1 && day <= 31 && timeParts) {
-                hint.textContent = `\u5f53\u524d\uff1a\u6bcf\u6708 ${day}\u65e5 ${timeParts.value}\uff08\u5317\u4eac\u65f6\u95f4\uff09`;
+            const day = toIntInRange($('#reminderAtMonthlyDay', reminderForm)?.value, 1, 31);
+            const timeValue = buildTimeValue(
+                $('#reminderAtMonthlyHour', reminderForm)?.value,
+                $('#reminderAtMonthlyMinute', reminderForm)?.value
+            );
+            if (day !== null && timeValue) {
+                hint.textContent = `\u5f53\u524d\uff1a\u6bcf\u6708 ${day}\u65e5 ${timeValue}\uff08\u5317\u4eac\u65f6\u95f4\uff09`;
             } else {
                 hint.textContent = '\u5f53\u524d\uff1a\u8bf7\u9009\u62e9\u6bcf\u6708\u65e5\u671f\u548c\u65f6\u95f4\uff08\u5317\u4eac\u65f6\u95f4\uff09';
             }
             return;
         }
 
-        const month = Number($('#reminderAtMonth', reminderForm)?.value || '0');
-        const day = Number($('#reminderAtYearDay', reminderForm)?.value || '0');
-        const timeParts = parseTimeParts($('#reminderAtYearlyTime', reminderForm)?.value || '');
-        const maxDay = month === 2 ? 29 : (month >= 1 && month <= 12 ? daysInMonth(2025, month) : 31);
-        if (Number.isInteger(month) && month >= 1 && month <= 12 && Number.isInteger(day) && day >= 1 && day <= maxDay && timeParts) {
-            hint.textContent = `\u5f53\u524d\uff1a\u6bcf\u5e74 ${month}\u6708${day}\u65e5 ${timeParts.value}\uff08\u5317\u4eac\u65f6\u95f4\uff09`;
+        const month = toIntInRange($('#reminderAtMonth', reminderForm)?.value, 1, 12);
+        const day = toIntInRange($('#reminderAtYearDay', reminderForm)?.value, 1, 31);
+        const timeValue = buildTimeValue(
+            $('#reminderAtYearlyHour', reminderForm)?.value,
+            $('#reminderAtYearlyMinute', reminderForm)?.value
+        );
+        const maxDay = month === null ? 31 : (month === 2 ? 29 : daysInMonth(2025, month));
+        if (month !== null && day !== null && day <= maxDay && timeValue) {
+            hint.textContent = `\u5f53\u524d\uff1a\u6bcf\u5e74 ${month}\u6708${day}\u65e5 ${timeValue}\uff08\u5317\u4eac\u65f6\u95f4\uff09`;
         } else {
             hint.textContent = '\u5f53\u524d\uff1a\u8bf7\u9009\u62e9\u6bcf\u5e74\u6708\u65e5\u548c\u65f6\u95f4\uff08\u5317\u4eac\u65f6\u95f4\uff09';
         }
@@ -554,11 +643,12 @@ export class ToolboxApp {
 
         const repeatTypeSelect = $('#reminderRepeatType', reminderForm);
         const repeatType = String(repeatTypeSelect?.value || 'once').toLowerCase();
+        this.syncReminderDayOptions(reminderForm);
         this.updateReminderTimeFieldState(reminderForm, repeatType);
 
         const weekdayField = $('#reminderWeekdayField', reminderForm);
         const weekdayInputs = Array.from(reminderForm.querySelectorAll('input[name="repeatWeekdays"]'));
-        const onceInputDate = new Date($('#reminderAtDateTime', reminderForm)?.value || '');
+        const onceInputDate = new Date(this.getOnceDateTimeFromForm(reminderForm));
         const fallbackWeekday = Number.isNaN(onceInputDate.getTime()) ? new Date().getDay() : onceInputDate.getDay();
 
         if (repeatType === 'weekly') {

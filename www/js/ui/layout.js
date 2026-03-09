@@ -182,47 +182,68 @@ export function getToolboxShell() {
                             </label>
                             <label>
                                 \u63d0\u9192\u65f6\u95f4
-                                <div id="reminderAtOnceField" class="reminder-time-mode-field">
-                                    <input id="reminderAtDateTime" type="datetime-local" name="reminderAtDateTime" required lang="zh-CN" step="60">
+                                <div id="reminderAtOnceField" class="reminder-time-mode-field reminder-time-inline-five">
+                                    <div class="reminder-subfield">
+                                        <span>\u5e74</span>
+                                        <select id="reminderAtYear" name="reminderAtYear"></select>
+                                    </div>
+                                    <div class="reminder-subfield">
+                                        <span>\u6708</span>
+                                        <select id="reminderAtMonthOnce" name="reminderAtMonthOnce"></select>
+                                    </div>
+                                    <div class="reminder-subfield">
+                                        <span>\u65e5</span>
+                                        <select id="reminderAtDayOnce" name="reminderAtDayOnce"></select>
+                                    </div>
+                                    <div class="reminder-subfield">
+                                        <span>\u65f6</span>
+                                        <select id="reminderAtHour" name="reminderAtHour"></select>
+                                    </div>
+                                    <div class="reminder-subfield">
+                                        <span>\u5206</span>
+                                        <select id="reminderAtMinute" name="reminderAtMinute"></select>
+                                    </div>
                                 </div>
-                                <div id="reminderAtTimeField" class="reminder-time-mode-field hidden">
-                                    <input id="reminderAtTime" type="time" name="reminderAtTime" lang="zh-CN" step="60">
+                                <div id="reminderAtTimeField" class="reminder-time-mode-field reminder-time-inline-two hidden">
+                                    <div class="reminder-subfield">
+                                        <span>\u65f6</span>
+                                        <select id="reminderAtTimeHour" name="reminderAtTimeHour"></select>
+                                    </div>
+                                    <div class="reminder-subfield">
+                                        <span>\u5206</span>
+                                        <select id="reminderAtTimeMinute" name="reminderAtTimeMinute"></select>
+                                    </div>
                                 </div>
-                                <div id="reminderAtMonthlyField" class="reminder-time-mode-field reminder-time-inline hidden">
+                                <div id="reminderAtMonthlyField" class="reminder-time-mode-field reminder-time-inline-three hidden">
                                     <div class="reminder-subfield">
                                         <span>\u6bcf\u6708\u65e5\u671f</span>
-                                        <input id="reminderAtDay" type="number" name="reminderAtDay" min="1" max="31" inputmode="numeric" placeholder="1-31">
+                                        <select id="reminderAtMonthlyDay" name="reminderAtMonthlyDay"></select>
                                     </div>
                                     <div class="reminder-subfield">
-                                        <span>\u63d0\u9192\u65f6\u95f4</span>
-                                        <input id="reminderAtMonthlyTime" type="time" name="reminderAtMonthlyTime" lang="zh-CN" step="60">
+                                        <span>\u65f6</span>
+                                        <select id="reminderAtMonthlyHour" name="reminderAtMonthlyHour"></select>
+                                    </div>
+                                    <div class="reminder-subfield">
+                                        <span>\u5206</span>
+                                        <select id="reminderAtMonthlyMinute" name="reminderAtMonthlyMinute"></select>
                                     </div>
                                 </div>
-                                <div id="reminderAtYearlyField" class="reminder-time-mode-field reminder-time-inline-three hidden">
+                                <div id="reminderAtYearlyField" class="reminder-time-mode-field reminder-time-inline-four hidden">
                                     <div class="reminder-subfield">
                                         <span>\u6708\u4efd</span>
-                                        <select id="reminderAtMonth" name="reminderAtMonth">
-                                            <option value="1">1\u6708</option>
-                                            <option value="2">2\u6708</option>
-                                            <option value="3">3\u6708</option>
-                                            <option value="4">4\u6708</option>
-                                            <option value="5">5\u6708</option>
-                                            <option value="6">6\u6708</option>
-                                            <option value="7">7\u6708</option>
-                                            <option value="8">8\u6708</option>
-                                            <option value="9">9\u6708</option>
-                                            <option value="10">10\u6708</option>
-                                            <option value="11">11\u6708</option>
-                                            <option value="12">12\u6708</option>
-                                        </select>
+                                        <select id="reminderAtMonth" name="reminderAtMonth"></select>
                                     </div>
                                     <div class="reminder-subfield">
                                         <span>\u65e5\u671f</span>
-                                        <input id="reminderAtYearDay" type="number" name="reminderAtYearDay" min="1" max="31" inputmode="numeric" placeholder="1-31">
+                                        <select id="reminderAtYearDay" name="reminderAtYearDay"></select>
                                     </div>
                                     <div class="reminder-subfield">
-                                        <span>\u63d0\u9192\u65f6\u95f4</span>
-                                        <input id="reminderAtYearlyTime" type="time" name="reminderAtYearlyTime" lang="zh-CN" step="60">
+                                        <span>\u65f6</span>
+                                        <select id="reminderAtYearlyHour" name="reminderAtYearlyHour"></select>
+                                    </div>
+                                    <div class="reminder-subfield">
+                                        <span>\u5206</span>
+                                        <select id="reminderAtYearlyMinute" name="reminderAtYearlyMinute"></select>
                                     </div>
                                 </div>
                             </label>

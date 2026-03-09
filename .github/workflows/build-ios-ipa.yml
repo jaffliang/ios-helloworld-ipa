@@ -5,15 +5,22 @@ on:
     branches: [main]
   workflow_dispatch:
 
+concurrency:
+  group: ios-ipa-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
 jobs:
   build-ios:
     runs-on: macos-15
+    timeout-minutes: 45
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -22,7 +29,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Verify Capacitor plugins
         run: npm ls @capacitor/haptics @capacitor/device @capacitor/network @capacitor/local-notifications @capacitor/clipboard @capacitor/camera @capacitor-mlkit/barcode-scanning
@@ -88,12 +95,34 @@ jobs:
       - name: Extract version info
         id: version
         run: |
-          # 使用 commit 的前7位作为版本号
           VERSION=$(git rev-parse --short HEAD)
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          # 使用当前日期作为 tag 名称
           TAG_NAME="ios-$(date +%Y%m%d-%H%M%S)"
           echo "tag=${TAG_NAME}" >> $GITHUB_OUTPUT
+          BUILD_TIME="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          echo "build_time=${BUILD_TIME}" >> $GITHUB_OUTPUT
+
+      - name: Generate release changelog
+        id: changelog
+        run: |
+          PREV_TAG=$(git tag --list 'ios-*' --sort=-creatordate | head -n 1)
+
+          if [ -n "$PREV_TAG" ]; then
+            CHANGELOG=$(git log "${PREV_TAG}..HEAD" --no-merges --first-parent --pretty=format:'- %s (%h)')
+          else
+            CHANGELOG=$(git log -n 20 --no-merges --first-parent --pretty=format:'- %s (%h)')
+          fi
+
+          if [ -z "$CHANGELOG" ]; then
+            CHANGELOG="- No code changes detected."
+          fi
+
+          {
+            echo "previous_tag=$PREV_TAG"
+            echo "changes<<EOF"
+            echo "$CHANGELOG"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Create Release and Upload IPA
         uses: softprops/action-gh-release@v1
@@ -101,20 +130,23 @@ jobs:
           tag_name: ${{ steps.version.outputs.tag }}
           name: iOS Unsigned IPA ${{ steps.version.outputs.tag }}
           body: |
-            ## 无签名 iOS IPA (适用于巨魔设备)
+            ## 无签名 iOS IPA（适用于巨魔设备）
 
-            ### 📱 应用信息
+            ### 应用信息
             - **应用名称**: HelloWorldiOS
             - **Bundle ID**: com.jaffliang.helloworld
             - **版本**: ${{ steps.version.outputs.version }}
-            - **构建时间**: ${{ github.event.head_commit.timestamp }}
+            - **构建时间 (UTC)**: ${{ steps.version.outputs.build_time }}
 
-            ### ⚠️ 注意事项
-            - 此 IPA 为**未签名版本**，需要通过巨魔商店或其他工具签名后安装
+            ### 注意事项
+            - 此 IPA 为**未签名版本**，需通过巨魔商店或其他工具签名后安装
             - 最低支持 iOS 14.0+
 
-            ### 📥 下载
+            ### 下载
             点击下方的 `HelloWorld.ipa` 文件下载
+
+            ### 本次变更说明
+            ${{ steps.changelog.outputs.changes }}
           files: ios/App/build/Build/Products/Release-iphoneos/HelloWorld.ipa
           draft: false
           prerelease: false

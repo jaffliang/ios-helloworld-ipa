@@ -429,13 +429,23 @@ body {
     gap: 6px;
 }
 
-.reminder-time-inline {
+.reminder-time-inline-two {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: end;
 }
 
 .reminder-time-inline-three {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: end;
+}
+
+.reminder-time-inline-four {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: end;
+}
+
+.reminder-time-inline-five {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     align-items: end;
 }
 
@@ -799,8 +809,10 @@ body {
         grid-template-columns: 1fr;
     }
 
-    .reminder-time-inline,
-    .reminder-time-inline-three {
+    .reminder-time-inline-two,
+    .reminder-time-inline-three,
+    .reminder-time-inline-four,
+    .reminder-time-inline-five {
         grid-template-columns: 1fr;
     }
 
