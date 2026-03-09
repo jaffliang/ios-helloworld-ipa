@@ -1,4 +1,4 @@
-﻿import { escapeHtml, formatDateTime, formatRelativeTime } from '../core/dom.js';
+﻿import { escapeHtml, formatChinaDateTime, formatDateTime, formatRelativeTime } from '../core/dom.js';
 
 function renderInfoRow(label, value, icon = '') {
     return `
@@ -210,7 +210,7 @@ export function renderRemindersPanel(panelElement, reminders) {
             <article class="reminder-item">
                 <div class="reminder-main">
                     <h3>${escapeHtml(reminder.title)}</h3>
-                    <p>\u4e0b\u6b21\uff1a${escapeHtml(formatDateTime(reminder.dueAt))}\uff08${escapeHtml(formatRelativeTime(reminder.dueAt))}\uff09</p>
+                    <p>\u4e0b\u6b21\uff1a${escapeHtml(formatChinaDateTime(reminder.dueAt))}\uff08${escapeHtml(formatRelativeTime(reminder.dueAt))}\uff09</p>
                     <p class="reminder-tag reminder-repeat-tag">${escapeHtml(getReminderRepeatLabel(reminder))}</p>
                     <p class="reminder-tag">${reminder.scheduled ? '\u7cfb\u7edf\u901a\u77e5\u5df2\u5b89\u6392' : '\u4ec5\u672c\u5730\u8bb0\u5f55'}</p>
                 </div>
@@ -219,3 +219,4 @@ export function renderRemindersPanel(panelElement, reminders) {
         `)
         .join('');
 }
+

@@ -15,9 +15,39 @@ export function escapeHtml(value) {
         .replaceAll("'", '&#39;');
 }
 
-export function formatDateTime(isoString) {
-    const date = new Date(isoString);
+function toValidDate(value) {
+    const date = value instanceof Date ? new Date(value.getTime()) : new Date(value);
     if (Number.isNaN(date.getTime())) {
+        return null;
+    }
+
+    return date;
+}
+
+function getDateTimeParts(date, timeZone) {
+    const formatter = new Intl.DateTimeFormat('zh-CN', {
+        timeZone,
+        hour12: false,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+
+    const partsMap = {};
+    formatter.formatToParts(date).forEach(part => {
+        if (part.type !== 'literal') {
+            partsMap[part.type] = part.value;
+        }
+    });
+
+    return partsMap;
+}
+
+export function formatDateTime(isoString) {
+    const date = toValidDate(isoString);
+    if (!date) {
         return '--';
     }
 
@@ -31,9 +61,19 @@ export function formatDateTime(isoString) {
     });
 }
 
+export function formatChinaDateTime(value) {
+    const date = toValidDate(value);
+    if (!date) {
+        return '--';
+    }
+
+    const { year = '--', month = '--', day = '--', hour = '--', minute = '--' } = getDateTimeParts(date, 'Asia/Shanghai');
+    return `${year}年${month}月${day}日 ${hour}:${minute}`;
+}
+
 export function formatRelativeTime(isoString) {
-    const date = new Date(isoString);
-    if (Number.isNaN(date.getTime())) {
+    const date = toValidDate(isoString);
+    if (!date) {
         return '--';
     }
 

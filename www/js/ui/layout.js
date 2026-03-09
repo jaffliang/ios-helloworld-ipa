@@ -182,8 +182,51 @@ export function getToolboxShell() {
                             </label>
                             <label>
                                 \u63d0\u9192\u65f6\u95f4
-                                <input type="datetime-local" name="reminderAt" required>
+                                <div id="reminderAtOnceField" class="reminder-time-mode-field">
+                                    <input id="reminderAtDateTime" type="datetime-local" name="reminderAtDateTime" required lang="zh-CN" step="60">
+                                </div>
+                                <div id="reminderAtTimeField" class="reminder-time-mode-field hidden">
+                                    <input id="reminderAtTime" type="time" name="reminderAtTime" lang="zh-CN" step="60">
+                                </div>
+                                <div id="reminderAtMonthlyField" class="reminder-time-mode-field reminder-time-inline hidden">
+                                    <div class="reminder-subfield">
+                                        <span>\u6bcf\u6708\u65e5\u671f</span>
+                                        <input id="reminderAtDay" type="number" name="reminderAtDay" min="1" max="31" inputmode="numeric" placeholder="1-31">
+                                    </div>
+                                    <div class="reminder-subfield">
+                                        <span>\u63d0\u9192\u65f6\u95f4</span>
+                                        <input id="reminderAtMonthlyTime" type="time" name="reminderAtMonthlyTime" lang="zh-CN" step="60">
+                                    </div>
+                                </div>
+                                <div id="reminderAtYearlyField" class="reminder-time-mode-field reminder-time-inline-three hidden">
+                                    <div class="reminder-subfield">
+                                        <span>\u6708\u4efd</span>
+                                        <select id="reminderAtMonth" name="reminderAtMonth">
+                                            <option value="1">1\u6708</option>
+                                            <option value="2">2\u6708</option>
+                                            <option value="3">3\u6708</option>
+                                            <option value="4">4\u6708</option>
+                                            <option value="5">5\u6708</option>
+                                            <option value="6">6\u6708</option>
+                                            <option value="7">7\u6708</option>
+                                            <option value="8">8\u6708</option>
+                                            <option value="9">9\u6708</option>
+                                            <option value="10">10\u6708</option>
+                                            <option value="11">11\u6708</option>
+                                            <option value="12">12\u6708</option>
+                                        </select>
+                                    </div>
+                                    <div class="reminder-subfield">
+                                        <span>\u65e5\u671f</span>
+                                        <input id="reminderAtYearDay" type="number" name="reminderAtYearDay" min="1" max="31" inputmode="numeric" placeholder="1-31">
+                                    </div>
+                                    <div class="reminder-subfield">
+                                        <span>\u63d0\u9192\u65f6\u95f4</span>
+                                        <input id="reminderAtYearlyTime" type="time" name="reminderAtYearlyTime" lang="zh-CN" step="60">
+                                    </div>
+                                </div>
                             </label>
+                            <p id="reminderTimeHint" class="reminder-time-hint">\u5f53\u524d\uff1a\u8bf7\u9009\u62e9\u63d0\u9192\u65f6\u95f4\uff08\u5317\u4eac\u65f6\u95f4\uff09</p>
                             <label>
                                 \u91cd\u590d\u89c4\u5219
                                 <select id="reminderRepeatType" name="repeatType">
