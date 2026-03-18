@@ -331,27 +331,71 @@ function buildRecurringNotifications({
     }
 
     const safeIds = normalizeNotificationIdList(notificationIds, 0, 1);
-    const everyMap = {
-        daily: 'day',
-        monthly: 'month',
-        yearly: 'year'
-    };
-    const schedule = everyMap[normalizedRepeatType]
-        ? {
-            at: dueAtDate,
-            repeats: true,
-            every: everyMap[normalizedRepeatType]
-        }
-        : {
-            at: dueAtDate
-        };
+
+    if (normalizedRepeatType === 'daily') {
+        return [
+            {
+                id: safeIds[0],
+                title,
+                body,
+                schedule: {
+                    on: {
+                        hour,
+                        minute
+                    },
+                    repeats: true
+                },
+                sound: 'default'
+            }
+        ];
+    }
+
+    if (normalizedRepeatType === 'monthly') {
+        const dayOfMonth = timeSource.getDate();
+        const safeDayOfMonth = Math.min(dayOfMonth, 28);
+
+        return [
+            {
+                id: safeIds[0],
+                title,
+                body,
+                schedule: {
+                    on: {
+                        day: safeDayOfMonth,
+                        hour,
+                        minute
+                    },
+                    repeats: true
+                },
+                sound: 'default'
+            }
+        ];
+    }
+
+    if (normalizedRepeatType === 'yearly') {
+        return [
+            {
+                id: safeIds[0],
+                title,
+                body,
+                schedule: {
+                    at: dueAtDate,
+                    repeats: true,
+                    every: 'year'
+                },
+                sound: 'default'
+            }
+        ];
+    }
 
     return [
         {
             id: safeIds[0],
             title,
             body,
-            schedule,
+            schedule: {
+                at: dueAtDate
+            },
             sound: 'default'
         }
     ];

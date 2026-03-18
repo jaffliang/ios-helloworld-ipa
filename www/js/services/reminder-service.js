@@ -74,7 +74,7 @@ function getNextDateByWeekdays(weekdays, timeParts, nowDate) {
 }
 
 function getNextMonthlyDate(startDate, nowDate) {
-    const day = startDate.getDate();
+    const day = Math.min(startDate.getDate(), 28);
     const timeParts = getTimeParts(startDate);
     let year = nowDate.getFullYear();
     let month = nowDate.getMonth();
@@ -82,7 +82,7 @@ function getNextMonthlyDate(startDate, nowDate) {
     let candidate = new Date(
         year,
         month,
-        Math.min(day, daysInMonth(year, month)),
+        day,
         timeParts.hour,
         timeParts.minute,
         0,
@@ -99,7 +99,7 @@ function getNextMonthlyDate(startDate, nowDate) {
         candidate = new Date(
             year,
             month,
-            Math.min(day, daysInMonth(year, month)),
+            day,
             timeParts.hour,
             timeParts.minute,
             0,
